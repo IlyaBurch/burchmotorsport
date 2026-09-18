@@ -108,6 +108,7 @@ const lapTicks = computed(() => Array.from({ length: laps.value }, (_, i) => i +
 }
 
 .chart__legend li {
+  max-width: none; /* bm.css caps li at 65ch for prose */
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);

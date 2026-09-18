@@ -82,6 +82,7 @@ const LEGEND = [
 }
 
 .tyres__row {
+  max-width: none; /* bm.css caps li at 65ch for prose */
   display: grid;
   grid-template-columns: 56px 1fr;
   gap: var(--space-2);

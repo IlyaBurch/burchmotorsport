@@ -679,6 +679,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 }
 
 .live__row {
+  max-width: none; /* bm.css caps li at 65ch for prose */
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) 48px 40px 36px;
   gap: var(--space-2);
@@ -695,6 +696,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 }
 
 .live__penalty {
+  max-width: none;
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--space-3);
@@ -717,6 +719,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 }
 
 .live__msg {
+  max-width: none;
   display: grid;
   grid-template-columns: 44px auto 1fr;
   gap: var(--space-2);
@@ -742,6 +745,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 }
 
 .live__radio-row {
+  max-width: none;
   display: grid;
   grid-template-columns: 44px auto 1fr;
   gap: var(--space-2);
