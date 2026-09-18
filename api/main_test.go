@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,13 +23,13 @@ func TestFetchLiveMerges(t *testing.T) {
 		case "/drivers":
 			w.Write([]byte(`[{"driver_number":1,"name_acronym":"NOR","team_name":"McLaren","team_colour":"FF8000"},{"driver_number":3,"name_acronym":"VER"}]`))
 		case "/position":
-			w.Write([]byte(`[{"driver_number":1,"position":1},{"driver_number":3,"position":2},{"driver_number":3,"position":1},{"driver_number":1,"position":2}]`))
+			w.Write([]byte(`[{"driver_number":1,"position":1,"date":"2025-01-01T00:00:00Z"},{"driver_number":3,"position":2,"date":"2025-01-01T00:00:00Z"},{"driver_number":3,"position":1,"date":"2025-01-01T00:01:30Z"},{"driver_number":1,"position":2,"date":"2025-01-01T00:01:30Z"}]`))
 		case "/intervals":
 			w.Write([]byte(`[{"driver_number":1,"gap_to_leader":1.5,"interval":1.5}]`))
 		case "/laps":
-			w.Write([]byte(`[{"driver_number":1,"lap_number":1,"lap_duration":90.5,"duration_sector_1":30.0},{"driver_number":1,"lap_number":2,"lap_duration":91.0,"duration_sector_1":30.5}]`))
+			w.Write([]byte(`[{"driver_number":1,"lap_number":1,"date_start":"2025-01-01T00:00:00Z","lap_duration":90.5,"duration_sector_1":30.0},{"driver_number":1,"lap_number":2,"date_start":"2025-01-01T00:01:30Z","lap_duration":91.0,"duration_sector_1":30.5}]`))
 		case "/stints":
-			w.Write([]byte(`[{"driver_number":1,"lap_start":1,"compound":"SOFT","tyre_age_at_start":2},{"driver_number":1,"lap_start":2,"compound":"HARD","tyre_age_at_start":0}]`))
+			w.Write([]byte(`[{"driver_number":1,"lap_start":1,"lap_end":1,"compound":"SOFT","tyre_age_at_start":2},{"driver_number":1,"lap_start":2,"compound":"HARD","tyre_age_at_start":0}]`))
 		case "/weather":
 			w.Write([]byte(`[{"air_temperature":20},{"air_temperature":25}]`))
 		case "/race_control":
@@ -64,6 +65,12 @@ func TestFetchLiveMerges(t *testing.T) {
 	}
 	if nor.Compound != "HARD" || nor.TyreAge != 1 || nor.Pits != 1 {
 		t.Fatalf("bad stint: %+v", nor)
+	}
+	if len(nor.Stints) != 2 || nor.Stints[1] != (Stint{"HARD", 2, 2}) {
+		t.Fatalf("bad stints: %+v", nor.Stints)
+	}
+	if fmt.Sprint(nor.ByLap) != "[1 2]" || fmt.Sprint(got.Drivers[0].ByLap) != "[2 1]" {
+		t.Fatalf("bad positions by lap: NOR %v VER %v", nor.ByLap, got.Drivers[0].ByLap)
 	}
 	if nor.ChampPos != 2 || nor.ChampPts != 100.5 {
 		t.Fatalf("bad championship: %+v", nor)

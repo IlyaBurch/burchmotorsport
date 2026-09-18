@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sort"
 	"sync"
@@ -38,6 +39,8 @@ type Driver struct {
 	Compound string      `json:"compound"`    // SOFT/MEDIUM/HARD/INTERMEDIATE/WET
 	TyreAge  int         `json:"tyreAge"`     // laps on current set
 	Pits     int         `json:"pits"`
+	Stints   []Stint     `json:"stints"`
+	ByLap    []int       `json:"positions"`   // position after each lap, index 0 = lap 1, 0 = unknown
 	ChampPos int         `json:"champPos"`    // standings before this session, 0 if unknown
 	ChampPts float64     `json:"champPoints"` // points before this session
 	X        int         `json:"x"`           // track coords, 0,0 if unknown
@@ -58,6 +61,12 @@ type RaceControl struct {
 	Flag     string `json:"flag"`
 	Message  string `json:"message"`
 	Lap      int    `json:"lap_number"`
+}
+
+type Stint struct {
+	Compound string `json:"compound"`
+	From     int    `json:"from"` // lap
+	To       int    `json:"to"`   // lap, inclusive
 }
 
 type Team struct {
@@ -190,17 +199,36 @@ var openf1 = "https://api.openf1.org/v1/"
 // ponytail: one global 3 req/s limiter for openf1, shared by every fetch.
 var limiter = time.Tick(340 * time.Millisecond)
 
+var client = &http.Client{Timeout: 20 * time.Second}
+
+// get fetches one openf1 endpoint, retrying once on 429/5xx or a network error.
 func get(path string, v any) error {
-	<-limiter
-	resp, err := http.Get(openf1 + path)
-	if err != nil {
+	var err error
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			log.Printf("openf1 retry %s: %v", path, err)
+			time.Sleep(time.Second)
+		}
+		<-limiter
+		var resp *http.Response
+		resp, err = client.Get(openf1 + path)
+		if err != nil {
+			continue
+		}
+		if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+			resp.Body.Close()
+			err = fmt.Errorf("openf1 %s: %s", path, resp.Status)
+			continue
+		}
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			return fmt.Errorf("openf1 %s: %s", path, resp.Status)
+		}
+		err = json.NewDecoder(resp.Body).Decode(v)
+		resp.Body.Close()
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("openf1 %s: %s", path, resp.Status)
-	}
-	return json.NewDecoder(resp.Body).Decode(v)
+	return err
 }
 
 func fetchLive(sessionKey string) (Live, error) {
@@ -221,8 +249,9 @@ func fetchLive(sessionKey string) (Live, error) {
 		Colour  string `json:"team_colour"`
 	}
 	var positions []struct {
-		Number   int `json:"driver_number"`
-		Position int `json:"position"`
+		Number   int    `json:"driver_number"`
+		Position int    `json:"position"`
+		Date     string `json:"date"`
 	}
 	var intervals []struct {
 		Number   int `json:"driver_number"`
@@ -232,6 +261,7 @@ func fetchLive(sessionKey string) (Live, error) {
 	var laps []struct {
 		Number   int      `json:"driver_number"`
 		Lap      int      `json:"lap_number"`
+		Start    string   `json:"date_start"`
 		Duration *float64 `json:"lap_duration"`
 		S1       *float64 `json:"duration_sector_1"`
 		S2       *float64 `json:"duration_sector_2"`
@@ -241,6 +271,7 @@ func fetchLive(sessionKey string) (Live, error) {
 	var stints []struct {
 		Number   int    `json:"driver_number"`
 		LapStart int    `json:"lap_start"`
+		LapEnd   int    `json:"lap_end"`
 		Compound string `json:"compound"`
 		Age      int    `json:"tyre_age_at_start"`
 	}
@@ -304,10 +335,52 @@ func fetchLive(sessionKey string) (Live, error) {
 	for i := range out {
 		byNum[out[i].Number] = &out[i]
 	}
+	// lap timeline: lap n starts when the first car starts it
+	lapStart := map[int]time.Time{}
+	maxLap := 0
+	for _, l := range laps {
+		t, err := time.Parse(time.RFC3339Nano, l.Start)
+		if err != nil {
+			continue
+		}
+		if cur, ok := lapStart[l.Lap]; !ok || t.Before(cur) {
+			lapStart[l.Lap] = t
+		}
+		if l.Lap > maxLap {
+			maxLap = l.Lap
+		}
+	}
+	lapAt := func(t time.Time) int {
+		n := 0
+		for lap := 1; lap <= maxLap; lap++ {
+			if st, ok := lapStart[lap]; ok && !st.After(t) {
+				n = lap
+			}
+		}
+		return n
+	}
+	for i := range out {
+		out[i].ByLap = make([]int, maxLap)
+	}
 	// arrays are chronological: last write wins
 	for _, p := range positions {
-		if d := byNum[p.Number]; d != nil {
-			d.Position = p.Position
+		d := byNum[p.Number]
+		if d == nil {
+			continue
+		}
+		d.Position = p.Position
+		if t, err := time.Parse(time.RFC3339Nano, p.Date); err == nil {
+			if lap := lapAt(t); lap > 0 {
+				d.ByLap[lap-1] = p.Position
+			}
+		}
+	}
+	// carry positions forward through laps with no change
+	for i := range out {
+		for lap := 1; lap < len(out[i].ByLap); lap++ {
+			if out[i].ByLap[lap] == 0 {
+				out[i].ByLap[lap] = out[i].ByLap[lap-1]
+			}
 		}
 	}
 	for _, iv := range intervals {
@@ -342,6 +415,11 @@ func fetchLive(sessionKey string) (Live, error) {
 			d.Pits++ // counts stints; corrected below
 			d.Compound = s.Compound
 			d.TyreAge = s.Age + d.Lap - s.LapStart + 1
+			to := s.LapEnd
+			if to == 0 {
+				to = d.Lap
+			}
+			d.Stints = append(d.Stints, Stint{Compound: s.Compound, From: s.LapStart, To: to})
 		}
 	}
 	for i := range out {

@@ -28,6 +28,8 @@ import {
 } from '@/shared/api/live'
 import TrackMap from './TrackMap.vue'
 import DriverPlate from './DriverPlate.vue'
+import PositionsChart from './PositionsChart.vue'
+import TyreChart from './TyreChart.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -147,7 +149,9 @@ const standings = computed(() =>
     : [],
 )
 const teams = computed(() => (live.value ? projectTeams(sessionName.value, live.value.drivers, live.value.teams) : []))
-const fmtDelta = (n: number) => (n > 0 ? `▲${n}` : n < 0 ? `▼${-n}` : '')
+const fmtDelta = (n: number) => (n > 0 ? `▲${n}` : n < 0 ? `▼${-n}` : '—')
+
+const laps = computed(() => Math.max(0, ...(live.value?.drivers.map((d) => d.positions.length) ?? [])))
 
 const penalties = computed(() => penaltiesFrom(live.value?.raceControl ?? []))
 const trackLimits = computed(() =>
@@ -253,7 +257,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
             <th class="live__num">S2</th>
             <th class="live__num">S3</th>
             <th class="live__num">Лучший</th>
-            <th class="live__num">Трап</th>
+            <th class="live__num">Скорость</th>
           </tr>
         </thead>
         <tbody v-if="live">
@@ -306,6 +310,16 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         <div><dt class="display-sm">Дождь</dt><dd class="timing">{{ live.weather.rainfall ? 'Да' : 'Нет' }}</dd></div>
       </dl>
     </aside>
+
+    <BmCard v-if="live && laps > 1" class="live__chart">
+      <div class="bm-card__eyebrow">Позиции по кругам</div>
+      <PositionsChart :drivers="live.drivers" />
+    </BmCard>
+
+    <BmCard v-if="live && laps > 1" class="live__tyres">
+      <div class="bm-card__eyebrow">Стратегия шин</div>
+      <TyreChart :drivers="live.drivers" />
+    </BmCard>
 
     <BmCard v-if="standings.length" class="live__drivers">
       <div class="bm-card__eyebrow">Личный зачёт{{ scoring ? ' · прогноз' : '' }}</div>
@@ -391,12 +405,14 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live {
   display: grid;
   gap: var(--space-4);
-  grid-template-areas: 'flag' 'head' 'table' 'side' 'drivers' 'teams' 'pen' 'radio' 'rc';
+  grid-template-areas: 'flag' 'head' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'radio' 'rc';
 }
 
 .live__head { grid-area: head; }
 .live__table-wrap { grid-area: table; }
 .live__side { grid-area: side; display: grid; gap: var(--space-4); align-content: start; }
+.live__chart { grid-area: chart; }
+.live__tyres { grid-area: tyres; }
 .live__drivers { grid-area: drivers; }
 .live__teams { grid-area: teams; }
 .live__pen { grid-area: pen; display: grid; gap: var(--space-4); align-content: start; }
@@ -410,6 +426,8 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       'flag flag flag'
       'head head head'
       'table table side'
+      'chart chart chart'
+      'tyres tyres tyres'
       'drivers teams pen'
       'rc rc radio';
     gap: var(--space-6);

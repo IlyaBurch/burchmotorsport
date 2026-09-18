@@ -27,6 +27,8 @@ export interface LiveDriver {
   compound: string
   tyreAge: number
   pits: number
+  stints: { compound: string; from: number; to: number }[] | null
+  positions: number[] // after each lap, 0 = unknown
   champPos: number
   champPoints: number
   x: number
@@ -225,6 +227,10 @@ export const flagClass = (flag: string) =>
 
 export const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' })
+
+/** compound → css class suffix; colours are the F1 convention, mapped to tokens in css */
+export const compoundClass = (c: string) =>
+  ({ SOFT: 'soft', MEDIUM: 'medium', HARD: 'hard', INTERMEDIATE: 'inter', WET: 'wet' })[c] ?? 'unknown'
 
 /** SOFT → "S" */
 export const compoundLetter = (c: string) => (c === 'INTERMEDIATE' ? 'I' : c.charAt(0))
