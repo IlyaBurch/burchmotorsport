@@ -44,7 +44,7 @@ const lapTicks = computed(() => Array.from({ length: laps.value }, (_, i) => i +
 <template>
   <div class="chart">
     <div class="chart__scroll">
-      <svg :viewBox="`0 0 ${w} ${h}`" :width="w" :height="h" role="img" aria-label="Позиции по кругам">
+      <svg :viewBox="`0 0 ${w} ${h}`" :style="{ minWidth: w + 'px' }" class="chart__svg" role="img" aria-label="Позиции по кругам">
         <g class="chart__grid">
           <line v-for="p in rows" :key="'r' + p" :x1="PAD.l" :x2="w - PAD.r" :y1="y(p)" :y2="y(p)" />
           <line v-for="l in lapTicks" :key="'l' + l" :x1="x(l)" :x2="x(l)" :y1="PAD.t" :y2="h - PAD.b" />
@@ -84,6 +84,12 @@ const lapTicks = computed(() => Array.from({ length: laps.value }, (_, i) => i +
 
 .chart__scroll {
   overflow-x: auto;
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .chart__grid line {

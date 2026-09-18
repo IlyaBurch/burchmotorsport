@@ -328,6 +328,33 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         <div><dt class="display-sm">Ветер</dt><dd class="timing">{{ live.weather.wind_speed }} м/с</dd></div>
         <div><dt class="display-sm">Дождь</dt><dd class="timing">{{ live.weather.rainfall ? 'Да' : 'Нет' }}</dd></div>
       </dl>
+
+      <BmCard v-if="live">
+        <div class="bm-card__eyebrow">Лучшие сектора</div>
+        <ol class="live__list">
+          <li v-for="b in bestSectorHolders" :key="b.i" class="live__row live__row--3">
+            <span class="display-sm">S{{ b.i + 1 }}</span>
+            <DriverPlate v-if="b.d" :label="b.d.acronym" :colour="b.d.teamColour" />
+            <span v-else class="body-sm">—</span>
+            <BmChip v-if="b.best != null" variant="purple">{{ formatSector(b.best) }}</BmChip>
+          </li>
+          <li class="live__row live__row--3">
+            <span class="display-sm">Идеал</span>
+            <span class="timing">{{ formatLap(idealLap) }}</span>
+          </li>
+        </ol>
+      </BmCard>
+
+      <BmCard v-if="fastestPits.length">
+        <div class="bm-card__eyebrow">Пит-стопы · быстрейшие</div>
+        <ol class="live__list">
+          <li v-for="p in fastestPits" :key="p.driver_number + '-' + p.lap_number" class="live__row live__row--3">
+            <span class="timing-sm">L{{ p.lap_number }}</span>
+            <DriverPlate v-bind="plate(p.driver_number)" />
+            <span class="timing">{{ p.pit_duration.toFixed(1) }}s</span>
+          </li>
+        </ol>
+      </BmCard>
     </aside>
 
     <BmCard v-if="live && laps > 1" class="live__chart">
@@ -382,34 +409,6 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         </ol>
       </BmCard>
 
-      <BmCard v-if="live">
-        <div class="bm-card__eyebrow">Лучшие сектора</div>
-        <ol class="live__list">
-          <li v-for="b in bestSectorHolders" :key="b.i" class="live__row live__row--3">
-            <span class="display-sm">S{{ b.i + 1 }}</span>
-            <DriverPlate v-if="b.d" :label="b.d.acronym" :colour="b.d.teamColour" />
-            <span v-else class="body-sm">—</span>
-            <BmChip v-if="b.best != null" variant="purple">{{ formatSector(b.best) }}</BmChip>
-          </li>
-          <li class="live__row live__row--3">
-            <span class="display-sm">Идеал</span>
-            <span class="body-sm">сумма</span>
-            <span class="timing">{{ formatLap(idealLap) }}</span>
-          </li>
-        </ol>
-      </BmCard>
-
-      <BmCard v-if="fastestPits.length">
-        <div class="bm-card__eyebrow">Пит-стопы · быстрейшие</div>
-        <ol class="live__list">
-          <li v-for="p in fastestPits" :key="p.driver_number + '-' + p.lap_number" class="live__row live__row--3">
-            <span class="timing-sm">L{{ p.lap_number }}</span>
-            <DriverPlate v-bind="plate(p.driver_number)" />
-            <span class="timing">{{ p.pit_duration.toFixed(1) }}s</span>
-          </li>
-        </ol>
-      </BmCard>
-
       <BmCard>
         <div class="bm-card__eyebrow">Лимиты трассы</div>
         <p v-if="!trackLimits.length" class="body-sm live__empty">Ни одного удалённого круга</p>
@@ -420,7 +419,6 @@ onScopeDispose(() => clearTimeout(bannerTimer))
           </span>
         </div>
       </BmCard>
-    </div>
 
     <BmCard v-if="live?.raceControl.length" class="live__rc">
       <div class="bm-card__eyebrow">Race control</div>
@@ -432,6 +430,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         </li>
       </ol>
     </BmCard>
+    </div>
 
     <BmCard v-if="live?.radio.length" class="live__radio">
       <div class="bm-card__eyebrow">Радио</div>
@@ -452,7 +451,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live {
   display: grid;
   gap: var(--space-4);
-  grid-template-areas: 'flag' 'head' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'radio' 'rc';
+  grid-template-areas: 'flag' 'head' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'radio';
 }
 
 .live__head { grid-area: head; }
@@ -462,8 +461,27 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live__tyres { grid-area: tyres; }
 .live__drivers { grid-area: drivers; }
 .live__teams { grid-area: teams; }
-.live__pen { grid-area: pen; display: grid; gap: var(--space-4); align-content: start; }
-.live__rc { grid-area: rc; }
+.live__pen { grid-area: pen; display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* race control takes whatever height the standings row leaves */
+.live__rc {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.live__rc .live__feed {
+  flex: 1;
+  min-height: 200px;
+  max-height: 480px;
+}
+
+@media (min-width: 1024px) {
+  .live__rc .live__feed {
+    max-height: none;
+  }
+}
 .live__radio { grid-area: radio; }
 
 @media (min-width: 1024px) {
@@ -476,7 +494,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       'chart chart chart'
       'tyres tyres tyres'
       'drivers teams pen'
-      'rc rc radio';
+      'radio radio radio';
     gap: var(--space-6);
   }
 }
