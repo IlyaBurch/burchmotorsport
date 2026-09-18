@@ -16,6 +16,7 @@ import {
   formatSector,
   formatTime,
   hasStarted,
+  inkOn,
   isFinished,
   penaltiesFrom,
   projectStandings,
@@ -135,6 +136,9 @@ const sectorTone = (d: Live['drivers'][number], i: number): Tone => {
   if (s === d.bestSectors[i]) return 'green'
   return 'default'
 }
+
+const bestTone = (d: Live['drivers'][number], i: number): Tone =>
+  d.bestSectors[i] != null && d.bestSectors[i] === overallBestSectors.value[i] ? 'purple' : 'default'
 
 const byNumber = computed(() => new Map(live.value?.drivers.map((d) => [d.number, d]) ?? []))
 const plate = (car: number) => ({
@@ -257,6 +261,41 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         </label>
       </div>
     </BmCard>
+
+    <!-- mobile: one card per driver instead of a 12-column scrolling table -->
+    <ol v-if="live" class="live__cards" aria-label="Пилоты">
+      <li v-for="d in live.drivers" :key="d.number" class="live__card">
+        <div class="live__card-id" :style="d.teamColour ? { background: '#' + d.teamColour, color: inkOn(d.teamColour) } : undefined">
+          <span class="display-md">{{ d.position || '—' }}</span>
+          <span class="body-strong">{{ d.acronym }}</span>
+        </div>
+        <div class="live__card-body">
+          <div class="live__cell">
+            <span class="timing">{{ formatGap(d.interval) }}</span>
+            <span class="timing-sm live__muted">{{ formatGap(d.gap) }}</span>
+          </div>
+          <div class="live__cell">
+            <span class="timing">{{ d.compound ? `${compoundLetter(d.compound)} ${d.tyreAge}` : '—' }}</span>
+            <span class="timing-sm live__muted">{{ d.pits }} pit</span>
+          </div>
+          <div class="live__cell">
+            <BmChip v-if="d.bestLap != null && d.bestLap === overallBestLap" variant="purple">{{ formatLap(d.lastLap) }}</BmChip>
+            <span v-else class="timing">{{ formatLap(d.lastLap) }}</span>
+            <span class="timing-sm live__muted">{{ formatLap(d.bestLap) }}</span>
+          </div>
+          <div class="live__cell live__cell--laps">
+            <span class="timing">{{ d.lap }}</span>
+            <span class="timing-sm live__muted">laps</span>
+          </div>
+          <div v-for="i in [0, 1, 2]" :key="i" class="live__cell live__cell--sector">
+            <BmChip v-if="sectorTone(d, i) !== 'default'" :variant="sectorTone(d, i)">{{ formatSector(d.sectors[i]) }}</BmChip>
+            <span v-else class="timing-sm">{{ formatSector(d.sectors[i]) }}</span>
+            <BmChip v-if="bestTone(d, i) !== 'default'" :variant="bestTone(d, i)">{{ formatSector(d.bestSectors[i]) }}</BmChip>
+            <span v-else class="timing-sm live__muted">{{ formatSector(d.bestSectors[i]) }}</span>
+          </div>
+        </div>
+      </li>
+    </ol>
 
     <div class="live__table-wrap">
       <table class="live__table">
@@ -463,7 +502,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live {
   display: grid;
   gap: var(--space-4);
-  grid-template-areas: 'flag' 'head' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
+  grid-template-areas: 'flag' 'head' 'cards' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
 }
 
 /* grid items default to min-width:auto and would grow to the widest chart; keep them inside the viewport */
@@ -472,7 +511,75 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 }
 
 .live__head { grid-area: head; }
-.live__table-wrap { grid-area: table; }
+.live__cards { grid-area: cards; }
+.live__table-wrap { grid-area: table; display: none; }
+
+@media (min-width: 768px) {
+  .live__cards { display: none; }
+  .live__table-wrap { display: block; }
+}
+
+/* driver cards (mobile) */
+.live__cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.live__card {
+  max-width: none;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  background: var(--surface-sunken);
+  border: var(--border-thin) solid var(--border);
+}
+
+.live__card-id {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background: var(--surface-raised);
+  border-right: var(--border-thin) solid var(--border);
+}
+
+.live__card-body {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1.3fr 0.6fr;
+  gap: 1px;
+  background: var(--border);
+}
+
+.live__cell {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--space-1);
+  background: var(--surface-sunken);
+  text-align: center;
+}
+
+.live__cell--laps {
+  background: var(--surface-raised);
+}
+
+.live__cell--sector {
+  grid-column: span 1;
+}
+
+.live__card-body .live__cell--sector:nth-of-type(5) {
+  grid-column: 1 / 2;
+}
+
+.live__card-body .live__cell--sector:nth-of-type(7) {
+  grid-column: 3 / 5;
+}
+
+.live__muted {
+  color: var(--text-muted);
+}
 .live__side { grid-area: side; display: flex; flex-direction: column; gap: var(--space-4); }
 .live__chart { grid-area: chart; }
 .live__tyres { grid-area: tyres; }
@@ -503,6 +610,12 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live__rc { grid-area: rc; }
 
 .live__radio { grid-area: radio; }
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .live {
+    grid-template-areas: 'flag' 'head' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
+  }
+}
 
 @media (min-width: 1024px) {
   .live {
