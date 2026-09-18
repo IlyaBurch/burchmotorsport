@@ -1,18 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
-import { countdown, formatMsk, sessionLabel } from '@/shared/api/live'
+import { countdown, fetchNext, formatMsk, sessionLabel, type NextSession } from '@/shared/api/live'
 
-interface Next {
-  session_key: number
-  session_name: string
-  country_name: string
-  date_start: string
-}
-
-const next = ref<Next | null>(null)
-fetch('/api/next')
-  .then((r) => (r.ok ? r.json() : null))
+const next = ref<NextSession | null>(null)
+fetchNext()
   .then((n) => (next.value = n))
   .catch(() => {})
 

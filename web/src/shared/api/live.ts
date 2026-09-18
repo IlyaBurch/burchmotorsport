@@ -99,6 +99,17 @@ export interface Resolved {
 /** which openf1 session a video is about, judging by its title */
 export const resolveTitle = (title: string) => getJSON<Resolved>(`/api/resolve?title=${encodeURIComponent(title)}`)
 
+export interface NextSession {
+  session_key: number
+  session_name: string
+  location: string
+  country_name: string
+  date_start: string
+}
+
+/** next session on the calendar, null in the off-season */
+export const fetchNext = () => getJSON<NextSession | null>('/api/next')
+
 /** previous year's race on the same circuit, for previews of upcoming sessions */
 export async function findPreviousRace(circuit: string, year: number): Promise<Session | null> {
   const meeting = (await fetchMeetings(year - 1)).find((m) => m.circuit_short_name === circuit)
