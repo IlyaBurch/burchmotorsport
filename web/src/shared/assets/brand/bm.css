@@ -1,0 +1,484 @@
+/*  ═══════════════════════════════════════════════════════════
+    Burch Motorsport — Base Component Classes
+    All styles reference tokens.css variables exclusively.
+    ═══════════════════════════════════════════════════════════ */
+
+/* ── Reset & globals ──────────────────────────────────── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+/* Max text width */
+p, li, dd, blockquote {
+  max-width: 65ch;
+}
+
+/* Links in text */
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  transition: background-color 100ms ease-out, color 100ms ease-out;
+}
+
+a:hover {
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ── Container ────────────────────────────────────────── */
+.bm-container {
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .bm-container {
+    padding-inline: var(--space-6);
+  }
+}
+
+/* ── Button ───────────────────────────────────────────── */
+.bm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 16px;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: var(--border-thin);
+  border-radius: 0;
+  box-shadow: var(--shadow-hard);
+  cursor: pointer;
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+  min-height: 44px;
+  user-select: none;
+}
+
+.bm-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.bm-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: var(--shadow-pressed);
+}
+
+.bm-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.bm-btn--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.bm-btn--ghost {
+  background: transparent;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+.bm-btn--ghost:hover {
+  background: var(--surface-raised);
+  box-shadow: none;
+  transform: none;
+  border-color: var(--border);
+}
+
+.bm-btn--ghost:active {
+  box-shadow: none;
+}
+
+.bm-btn[disabled],
+.bm-btn.is-disabled {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Icon inside button */
+.bm-btn > svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* ── Card ─────────────────────────────────────────────── */
+.bm-card {
+  background: var(--surface-raised);
+  border: var(--border-thin);
+  box-shadow: var(--shadow-hard);
+  padding: var(--space-4);
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+}
+
+@media (min-width: 640px) {
+  .bm-card {
+    padding: var(--space-6);
+  }
+}
+
+.bm-card__eyebrow {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: var(--space-1);
+}
+
+.bm-card__title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 20px;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+/* Divider inside card */
+.bm-card__divider {
+  border: none;
+  border-top: var(--border-thin);
+  margin-block: var(--space-4);
+}
+
+/* ── Chip ─────────────────────────────────────────────── */
+.bm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  border: var(--border-thin);
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+
+.bm-chip--purple {
+  background: var(--timing-purple);
+}
+
+.bm-chip--green {
+  background: var(--timing-green);
+}
+
+.bm-chip--yellow {
+  background: var(--timing-yellow);
+}
+
+.bm-chip--red {
+  background: var(--flag-red);
+}
+
+/* ── Time (large timing display) ──────────────────────── */
+.bm-time {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Sector bar ───────────────────────────────────────── */
+.bm-sectorbar {
+  display: flex;
+  height: 12px;
+  width: 100%;
+  overflow: hidden;
+  border: var(--border-thin);
+}
+
+.bm-sectorbar > i {
+  flex: 1;
+}
+
+.bm-sectorbar > i:nth-child(1) { background: var(--blue-200); }
+.bm-sectorbar > i:nth-child(2) { background: var(--blue-400); }
+.bm-sectorbar > i:nth-child(3) { background: var(--blue-600); }
+.bm-sectorbar > i:nth-child(4) { background: var(--navy); }
+
+/* ── Checker (finish-flag pattern) ────────────────────── */
+.bm-checker {
+  flex: 1;
+  background: conic-gradient(
+    var(--ink) 0.25turn,
+    var(--paper) 0.25turn 0.5turn,
+    var(--ink) 0.5turn 0.75turn,
+    var(--paper) 0.75turn
+  );
+  background-size: 12px 12px;
+}
+
+/* ── Header ───────────────────────────────────────────── */
+.bm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border-bottom: var(--border-thin);
+}
+
+@media (min-width: 640px) {
+  .bm-header {
+    padding: var(--space-3) var(--space-6);
+  }
+}
+
+.bm-header__logo {
+  height: 40px;
+  display: block;
+}
+
+@media (min-width: 640px) {
+  .bm-header__logo {
+    height: 48px;
+  }
+}
+
+.bm-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* ── Input field ──────────────────────────────────────── */
+.bm-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.bm-input-group__label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.bm-input {
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: var(--border-thin);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  outline: none;
+  transition: border-color 100ms ease-out;
+}
+
+.bm-input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.bm-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ── Tabs / segments ──────────────────────────────────── */
+.bm-tabs {
+  display: inline-flex;
+  border: var(--border-thin);
+}
+
+.bm-tabs__item {
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 14px;
+  text-transform: uppercase;
+  background: var(--surface-raised);
+  color: var(--text);
+  border: none;
+  border-right: var(--border-thin);
+  cursor: pointer;
+  min-height: 44px;
+  transition: background-color 100ms ease-out, color 100ms ease-out;
+}
+
+.bm-tabs__item:last-child {
+  border-right: none;
+}
+
+.bm-tabs__item:hover {
+  background: var(--surface-sunken);
+}
+
+.bm-tabs__item:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.bm-tabs__item[aria-selected="true"],
+.bm-tabs__item.is-active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ── Results table ────────────────────────────────────── */
+.bm-table-wrap {
+  background: var(--surface-sunken);
+  border: var(--border-thick);
+  overflow-x: auto;
+  /* Reserve space for shadows of child elements */
+  margin-right: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.bm-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bm-table th {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 14px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+}
+
+.bm-table td {
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-thin);
+}
+
+/* Numeric cells align right */
+.bm-table td[data-timing],
+.bm-table .cell-number {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.bm-table tr.is-current {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ── Modal / overlay ──────────────────────────────────── */
+.bm-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--navy-deep);
+  opacity: 0.8;
+  z-index: 90;
+}
+
+.bm-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--surface-raised);
+  border: var(--border-thick);
+  box-shadow: var(--shadow-hard-lg);
+  padding: var(--space-6);
+  z-index: 100;
+  max-width: calc(100vw - var(--space-8));
+  max-height: calc(100dvh - var(--space-8));
+  overflow-y: auto;
+}
+
+/* ── Toast ────────────────────────────────────────────── */
+.bm-toast {
+  position: fixed;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-raised);
+  border: var(--border-thin);
+  box-shadow: var(--shadow-hard);
+  padding: var(--space-3) var(--space-6);
+  z-index: 110;
+  font-family: var(--font-body);
+  font-size: 16px;
+}
+
+/* ── Skeleton loader ──────────────────────────────────── */
+.bm-skeleton {
+  background: var(--surface-sunken);
+  border: var(--border-thin);
+  animation: bm-pulse 800ms ease-in-out infinite alternate;
+}
+
+@keyframes bm-pulse {
+  from { opacity: 1; }
+  to   { opacity: 0.6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bm-skeleton {
+    animation: none;
+  }
+}
+
+/* ── Empty state ──────────────────────────────────────── */
+.bm-empty {
+  text-align: center;
+  padding: var(--space-12) var(--space-4);
+}
+
+.bm-empty__title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 32px;
+  line-height: 1.15;
+  margin-bottom: var(--space-2);
+}
+
+.bm-empty__text {
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-bottom: var(--space-6);
+}
