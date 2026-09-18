@@ -137,6 +137,13 @@ const fmtDelta = (n: number) => (n > 0 ? `▲${n}` : n < 0 ? `▼${-n}` : '')
 
 const penalties = computed(() => live.value?.raceControl.filter((m) => PENALTY_RE.test(m.message)) ?? [])
 
+const trackFlag = computed(() => {
+  const f = live.value?.raceControl.find((m) => m.category === 'Flag' || m.category === 'SafetyCar')
+  return f?.flag ?? null
+})
+const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
+  flag === 'RED' ? 'red' : flag && /YELLOW|SC|VSC/.test(flag) ? 'yellow' : flag === 'CHEQUERED' ? 'purple' : 'green'
+
 // flag banner under the header: shows on change, green/clear hides itself after 5s
 const banner = ref<string | null>(null)
 let bannerTimer: ReturnType<typeof setTimeout> | undefined
@@ -149,13 +156,6 @@ watch(
   },
 )
 onScopeDispose(() => clearTimeout(bannerTimer))
-
-const trackFlag = computed(() => {
-  const f = live.value?.raceControl.find((m) => m.category === 'Flag' || m.category === 'SafetyCar')
-  return f?.flag ?? null
-})
-const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
-  flag === 'RED' ? 'red' : flag && /YELLOW|SC|VSC/.test(flag) ? 'yellow' : flag === 'CHEQUERED' ? 'purple' : 'green'
 </script>
 
 <template>
