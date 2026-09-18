@@ -20,7 +20,10 @@ export function useRutube(iframe: Ref<HTMLIFrameElement | null>) {
 
   const onMessage = (e: MessageEvent) => {
     if (e.origin !== 'https://rutube.ru') return
-    let msg: { type?: string; data?: { state?: string; time?: number; title?: string } }
+    let msg: {
+      type?: string
+      data?: { state?: string; time?: number; title?: string; playOptions?: { title?: string } }
+    }
     try {
       msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
     } catch {
@@ -37,9 +40,12 @@ export function useRutube(iframe: Ref<HTMLIFrameElement | null>) {
         currentTime.value = msg.data?.time ?? currentTime.value
         break
       case 'player:playOptionLoaded':
-      case 'player:playOptionsLoaded': // docs spell it both ways
-        if (msg.data?.title) title.value = msg.data.title
+      case 'player:playOptionsLoaded': {
+        // docs say data.title; the player actually sends data.playOptions.title
+        const t = msg.data?.playOptions?.title ?? msg.data?.title
+        if (t) title.value = t
         break
+      }
     }
   }
   window.addEventListener('message', onMessage)

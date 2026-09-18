@@ -17,7 +17,10 @@ async function mountAt(path: string, handler: (url: string) => Response = () => 
 /** what the RuTube iframe posts once getPlayOptions=title is loaded */
 async function playerTitle(title: string) {
   window.dispatchEvent(
-    new MessageEvent('message', { origin: 'https://rutube.ru', data: JSON.stringify({ type: 'player:playOptionLoaded', data: { title } }) }),
+    new MessageEvent('message', {
+      origin: 'https://rutube.ru',
+      data: JSON.stringify({ type: 'player:playOptionsLoaded', data: { videoId: 'x', playOptions: { title } } }),
+    }),
   )
   await flushPromises()
 }
