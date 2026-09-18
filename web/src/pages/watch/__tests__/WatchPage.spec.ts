@@ -29,10 +29,12 @@ describe('WatchPage', () => {
     await w.find('input').setValue('https://vk.com/video')
     await w.find('form').trigger('submit')
     expect(w.text()).toContain('Это не ссылка на RuTube')
+    await router.replace({ query: { session: '9947' } })
     await w.find('input').setValue(`https://rutube.ru/video/${id}/`)
     await w.find('form').trigger('submit')
     await flushPromises()
     expect(router.currentRoute.value.query.v).toBe(id)
+    expect(router.currentRoute.value.query.session).toBeUndefined()
   })
 
   it('embeds the player when the url carries a video id', async () => {

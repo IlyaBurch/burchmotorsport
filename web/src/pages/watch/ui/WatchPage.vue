@@ -25,7 +25,7 @@ function open() {
     return
   }
   linkError.value = ''
-  router.replace({ query: { ...route.query, v: id } })
+  router.replace({ query: { v: id } }) // a new video gets its own session, drop the old one
 }
 
 // --- telemetry for the session from the url ------------------------------------
