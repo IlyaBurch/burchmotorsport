@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -43,16 +44,21 @@ func bearer() (string, error) {
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("openf1 token: %s", resp.Status)
 	}
+	// expires_in arrives as the string "3600", not a number as the docs show
 	var t struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
+		AccessToken string          `json:"access_token"`
+		ExpiresIn   json.RawMessage `json:"expires_in"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&t); err != nil || t.AccessToken == "" {
 		return "", fmt.Errorf("openf1 token: bad response")
 	}
+	ttl, _ := strconv.Atoi(strings.Trim(string(t.ExpiresIn), `"`))
+	if ttl < 600 {
+		ttl = 3600
+	}
 	token = t.AccessToken
-	tokExp = time.Now().Add(time.Duration(t.ExpiresIn)*time.Second - 5*time.Minute)
-	log.Printf("openf1 token refreshed, valid %ds", t.ExpiresIn)
+	tokExp = time.Now().Add(time.Duration(ttl)*time.Second - 5*time.Minute)
+	log.Printf("openf1 token refreshed, valid %ds", ttl)
 	return token, nil
 }
 

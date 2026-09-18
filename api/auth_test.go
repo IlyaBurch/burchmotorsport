@@ -15,7 +15,7 @@ func TestBearerAttachedAndCached(t *testing.T) {
 			if r.FormValue("username") != "u" || r.FormValue("password") != "p" {
 				t.Fatalf("bad form: %v", r.Form)
 			}
-			w.Write([]byte(`{"access_token":"abc","expires_in":3600,"token_type":"bearer"}`))
+			w.Write([]byte(`{"expires_in":"3600","access_token":"abc","token_type":"bearer"}`))
 			return
 		}
 		if r.Header.Get("Authorization") != "Bearer abc" {
