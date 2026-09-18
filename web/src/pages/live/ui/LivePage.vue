@@ -466,6 +466,11 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   grid-template-areas: 'flag' 'head' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
 }
 
+/* grid items default to min-width:auto and would grow to the widest chart; keep them inside the viewport */
+.live > * {
+  min-width: 0;
+}
+
 .live__head { grid-area: head; }
 .live__table-wrap { grid-area: table; }
 .live__side { grid-area: side; display: flex; flex-direction: column; gap: var(--space-4); }

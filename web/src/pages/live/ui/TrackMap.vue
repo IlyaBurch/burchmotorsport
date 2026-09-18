@@ -35,6 +35,7 @@ const unit = computed(() => box.value.w / 100)
   <svg
     class="map"
     :viewBox="`${box.minX} 0 ${box.w} ${box.h}`"
+    :style="{ aspectRatio: `${box.w} / ${box.h}` }"
     role="img"
     aria-label="Положение пилотов на трассе"
   >
@@ -60,6 +61,8 @@ const unit = computed(() => box.value.w / 100)
   display: block;
   width: 100%;
   height: auto;
+  flex: none; /* flex column parent must not stretch it */
+  box-sizing: border-box;
   background: var(--surface-raised);
   border: var(--border-thick) solid var(--border);
   box-shadow: var(--shadow-hard);
