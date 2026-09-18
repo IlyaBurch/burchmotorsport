@@ -80,7 +80,8 @@ const bestLap = computed(() => {
     <img src="/brand/night-lords.png" alt="Night Lords" class="home__legion-emblem" />
     <div>
       <div class="bm-card__eyebrow">VIII легион</div>
-      <h2 class="display-lg">Ave Dominus Nox, нас ведёт Конрад Керз</h2>
+      <h2 class="display-lg">Ave Dominus Nox</h2>
+      <p class="display-md">Нас ведёт Конрад Керз</p>
       <p class="body-lg">Мы не просим верности. Мы приходим ночью, и страх делает остальное.</p>
       <p class="body-sm">Повелители Ночи. Нострамо помнит.</p>
     </div>
