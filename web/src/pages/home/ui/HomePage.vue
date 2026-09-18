@@ -45,14 +45,17 @@ const bestLap = computed(() => {
 
 <template>
   <section class="home__hero">
-    <div>
-      <h1 class="display-xl">Lights Out</h1>
-      <p class="body-lg home__lead">
-        Burch Motorsport — коммунити, телеметрия и трансляции Формулы 1.
-      </p>
-      <div class="home__actions">
-        <RouterLink class="bm-btn bm-btn--primary" to="/watch">Смотреть трансляцию</RouterLink>
-        <RouterLink class="bm-btn" to="/live">Телеметрия</RouterLink>
+    <!-- brand plate: flat blue-600, mark as an image, paper text on top (guide §2) -->
+    <div class="home__plate">
+      <img src="/brand/mark.svg" alt="Burch Motorsport" class="home__mark" />
+      <div class="home__plate-text">
+        <div class="display-sm home__kicker">Burch Motorsport</div>
+        <h1 class="display-xl">Личный пит-уолл</h1>
+        <p class="body-lg home__lead">Телеметрия, трансляции и коммунити Формулы 1. Всё, что видит команда на пит-уолле, у тебя на экране.</p>
+        <div class="home__actions">
+          <RouterLink class="bm-btn bm-btn--primary" to="/watch">Смотреть трансляцию</RouterLink>
+          <RouterLink class="bm-btn home__btn-paper" to="/live">Телеметрия</RouterLink>
+        </div>
       </div>
     </div>
 
@@ -133,9 +136,51 @@ const bestLap = computed(() => {
   }
 }
 
+.home__plate {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--blue-600);
+  color: var(--paper);
+  border: var(--border-thick) solid var(--border);
+  box-shadow: var(--shadow-hard-lg);
+}
+
+@media (min-width: 768px) {
+  .home__plate {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-8);
+    min-height: 100%;
+    box-sizing: border-box;
+  }
+}
+
+.home__mark {
+  width: 96px;
+  height: auto;
+}
+
+@media (min-width: 768px) {
+  .home__mark {
+    width: 180px;
+  }
+}
+
+.home__kicker {
+  color: var(--blue-200);
+}
+
 .home__lead {
-  margin-top: var(--space-4);
-  max-width: 48ch;
+  margin-top: var(--space-3);
+  max-width: 44ch;
+}
+
+/* secondary button on the blue plate: paper fill so it reads against blue-600 */
+.home__btn-paper {
+  background: var(--paper);
+  color: var(--ink);
 }
 
 .home__actions {
