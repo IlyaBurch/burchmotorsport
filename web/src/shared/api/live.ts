@@ -79,6 +79,7 @@ export interface Meeting {
   meeting_key: number
   meeting_name: string
   country_name: string
+  circuit_short_name: string
   date_start: string
 }
 
@@ -86,6 +87,14 @@ export interface Session {
   session_key: number
   session_name: string
   date_start: string
+  date_end: string
+}
+
+/** previous year's race on the same circuit, for previews of upcoming sessions */
+export async function findPreviousRace(circuit: string, year: number): Promise<Session | null> {
+  const meeting = (await fetchMeetings(year - 1)).find((m) => m.circuit_short_name === circuit)
+  if (!meeting) return null
+  return (await fetchSessions(meeting.meeting_key)).find((s) => s.session_name === 'Race') ?? null
 }
 
 /** the api knows the session but has no timing rows for it */

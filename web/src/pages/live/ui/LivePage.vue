@@ -13,13 +13,13 @@ import {
   fetchMeetings,
   fetchSessions,
   fetchTrack,
+  findPreviousRace,
   flagClass,
   formatGap,
   formatLap,
   formatMsk,
   formatSector,
   formatTime,
-  hasStarted,
   inkOn,
   isFinished,
   penaltiesFrom,
@@ -44,6 +44,7 @@ const live = ref<Live | null>(null)
 const outline = ref<[number, number][]>([])
 const error = ref<string | null>(null)
 const noData = ref(false)
+const previous = ref<Live | null>(null) // last year's race here, for upcoming previews
 const now = ref(Date.now())
 useIntervalFn(() => (now.value = Date.now()), 30_000)
 
@@ -74,14 +75,35 @@ watch(
   async (key) => {
     live.value = null
     outline.value = []
+    previous.value = null
     noData.value = false
     await refresh()
     const l = live.value as Live | null
     if (l && !l.upcoming) fetchTrack(key).then((o) => (outline.value = o)).catch(() => {}) // map is optional
+    if (l?.upcoming) loadPreview(l)
     if (l && !l.upcoming && !isFinished(l.session)) poll.resume()
     else poll.pause()
   },
   { immediate: true },
+)
+
+// --- upcoming session preview: last year's race here, its map and podium ----
+async function loadPreview(l: Live) {
+  try {
+    const race = await findPreviousRace(l.session.circuit_short_name, new Date(l.session.date_start).getFullYear())
+    if (!race) return
+    const [prev, o] = await Promise.all([fetchLive(race.session_key), fetchTrack(race.session_key).catch(() => [])])
+    if (live.value?.session.session_key !== l.session.session_key) return // user moved on
+    previous.value = prev
+    outline.value = o
+  } catch {
+    /* preview is optional */
+  }
+}
+const weekend = computed(() =>
+  live.value?.upcoming
+    ? sessions.value.map((x) => ({ ...x, started: Date.parse(x.date_start) <= now.value }))
+    : [],
 )
 
 // --- pickers -------------------------------------------------------------
@@ -96,8 +118,8 @@ const meetingKey = ref<number | null>(null)
 const meetings = ref<Meeting[]>([])
 const sessions = ref<Session[]>([])
 
-const loadMeetings = async (y: number) => (meetings.value = (await fetchMeetings(y)).filter(hasStarted))
-const loadSessions = async (mk: number) => (sessions.value = (await fetchSessions(mk)).filter(hasStarted))
+const loadMeetings = async (y: number) => (meetings.value = await fetchMeetings(y))
+const loadSessions = async (mk: number) => (sessions.value = await fetchSessions(mk))
 const goTo = (key: number) => router.replace({ query: { session: String(key) } })
 
 async function onYear(e: Event) {
@@ -287,11 +309,50 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       </details>
     </BmCard>
 
-    <BmCard v-if="upcoming" class="live__status">
-      <div class="bm-card__eyebrow">До старта</div>
-      <p class="display-lg live__countdown">{{ countdown(Date.parse(live!.session.date_start) - now) }}</p>
-      <p class="body">{{ live!.session.circuit_short_name }} · {{ sessionLabel(live!.session.session_name) }} · {{ formatMsk(live!.session.date_start) }}</p>
-    </BmCard>
+    <section v-if="upcoming" class="live__status live__preview">
+      <BmCard class="live__preview-main">
+        <div class="bm-card__eyebrow">До старта</div>
+        <p class="display-xl live__countdown">{{ countdown(Date.parse(live!.session.date_start) - now) }}</p>
+        <p class="body-lg">
+          {{ sessionLabel(live!.session.session_name) }} · {{ live!.session.circuit_short_name }}, {{ live!.session.country_name }}
+        </p>
+        <p class="body">Старт {{ formatMsk(live!.session.date_start) }}</p>
+
+        <div v-if="weekend.length" class="live__weekend">
+          <div class="display-sm live__weekend-title">Уикенд</div>
+          <ol class="live__list">
+            <li v-for="x in weekend" :key="x.session_key" class="live__weekend-row" :class="{ 'live__weekend-row--current': x.session_key === live!.session.session_key }">
+              <RouterLink class="body-strong live__weekend-link" :to="{ path: '/live', query: { session: String(x.session_key) } }">
+                {{ sessionLabel(x.session_name) }}
+              </RouterLink>
+              <span class="timing-sm">{{ formatMsk(x.date_start) }}</span>
+              <BmChip v-if="x.started" variant="green">Была</BmChip>
+            </li>
+          </ol>
+        </div>
+      </BmCard>
+
+      <div class="live__preview-side">
+        <TrackMap v-if="outline.length" :outline="outline" :drivers="[]" />
+        <div v-else class="live__skeleton live__skeleton--map" aria-busy="true" aria-label="Загрузка карты" />
+
+        <BmCard v-if="previous">
+          <div class="bm-card__eyebrow">В прошлом году</div>
+          <p class="body-sm">{{ previous.session.circuit_short_name }} · {{ new Date(previous.session.date_start).getFullYear() }}</p>
+          <ol class="live__list">
+            <li v-for="d in previous.drivers.slice(0, 3)" :key="d.number" class="live__podium">
+              <span class="display-sm">{{ d.position }}</span>
+              <DriverPlate :label="d.acronym" :colour="d.teamColour" />
+              <span class="body-sm">{{ d.name }}</span>
+              <span class="timing live__num">{{ formatGap(d.gap) }}</span>
+            </li>
+          </ol>
+          <RouterLink class="bm-btn bm-btn--ghost live__preview-link" :to="{ path: '/live', query: { session: String(previous.session.session_key) } }">
+            Вся гонка
+          </RouterLink>
+        </BmCard>
+      </div>
+    </section>
 
     <BmCard v-else-if="noData" class="live__status">
       <div class="bm-card__eyebrow">Box box</div>
@@ -548,8 +609,69 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 }
 
 .live__head { grid-area: head; }
-.live__status { grid-area: status; text-align: center; }
-.live__countdown { margin: var(--space-3) 0; }
+.live__status { grid-area: status; }
+
+/* upcoming session preview */
+.live__preview {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (min-width: 1024px) {
+  .live__preview {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: var(--space-6);
+  }
+}
+
+.live__preview-side {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.live__countdown {
+  margin: var(--space-3) 0;
+}
+
+.live__weekend {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: var(--border-thin) solid var(--border);
+}
+
+.live__weekend-title {
+  color: var(--text-muted);
+}
+
+.live__weekend-row {
+  max-width: none;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.live__weekend-row--current .live__weekend-link {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.live__weekend-link {
+  padding: 0 var(--space-2);
+}
+
+.live__podium {
+  max-width: none;
+  display: grid;
+  grid-template-columns: 24px 56px 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.live__preview-link {
+  margin-top: var(--space-4);
+}
 .live__cards { grid-area: cards; }
 .live__table-wrap { grid-area: table; display: none; }
 
