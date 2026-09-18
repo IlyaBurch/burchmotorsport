@@ -14,7 +14,9 @@ import {
   formatLap,
   formatSector,
   hasStarted,
+  inkOn,
   isFinished,
+  sessionLabel,
   type Live,
   type Meeting,
   type Session,
@@ -73,14 +75,14 @@ const goTo = (key: number) => router.replace({ query: { session: String(key) } }
 async function onYear(e: Event) {
   year.value = Number((e.target as HTMLSelectElement).value)
   await loadMeetings(year.value)
-  const last = meetings.value.at(-1)
+  const last = meetings.value[meetings.value.length - 1]
   if (last) await onMeeting(last.meeting_key)
 }
 
 async function onMeeting(mk: number) {
   meetingKey.value = mk
   await loadSessions(mk)
-  const last = sessions.value.at(-1)
+  const last = sessions.value[sessions.value.length - 1]
   if (last) goTo(last.session_key)
 }
 
@@ -140,7 +142,7 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
         <div>
           <div class="bm-card__eyebrow">{{ finished ? 'Архив' : 'Live' }}</div>
           <h1 class="bm-card__title">
-            {{ live ? `${live.session.circuit_short_name} · ${live.session.session_name}` : 'Телеметрия' }}
+            {{ live ? `${live.session.circuit_short_name} · ${sessionLabel(live.session.session_name)}` : 'Телеметрия' }}
           </h1>
           <p class="body-sm live__meta">
             <template v-if="live && finished">{{ leaderLap }} кругов · сессия завершена</template>
@@ -182,7 +184,7 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
             @change="goTo(Number(($event.target as HTMLSelectElement).value))"
           >
             <option v-for="s in sessions" :key="s.session_key" :value="s.session_key">
-              {{ s.session_name }}
+              {{ sessionLabel(s.session_name) }}
             </option>
           </select>
         </label>
@@ -233,8 +235,11 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
         <tbody v-if="live">
           <tr v-for="d in live.drivers" :key="d.number">
             <td class="display-sm live__sticky live__sticky--pos">{{ d.position || '—' }}</td>
-            <td class="body-strong live__sticky live__sticky--drv">
-              {{ d.acronym }}
+            <td class="live__sticky live__sticky--drv">
+              <span
+                class="body-strong live__team"
+                :style="d.teamColour ? { background: '#' + d.teamColour, color: inkOn(d.teamColour) } : undefined"
+              >{{ d.acronym }}</span>
               <span class="body-sm live__name">{{ d.name }}</span>
             </td>
             <td class="timing">
@@ -275,7 +280,7 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 .live {
   display: grid;
   gap: var(--space-4);
-  grid-template-areas: 'head' 'side' 'table';
+  grid-template-areas: 'head' 'table' 'side';
 }
 
 .live__head { grid-area: head; }
@@ -331,10 +336,13 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 .live__pickers label {
   display: grid;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 /* input recipe from the guide, applied to a native select */
 .live__select {
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
   padding: var(--space-3) var(--space-4);
   background: var(--surface-raised);
@@ -396,6 +404,15 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
   right: 0;
   bottom: 0;
   border-right: 1px solid var(--border);
+}
+
+/* team colour comes from openf1 as data, not from a token: inline style, ink picked by luminance */
+.live__team {
+  display: inline-block;
+  min-width: 48px;
+  padding: 0 var(--space-2);
+  border: var(--border-thin) solid var(--border);
+  text-align: center;
 }
 
 .live__num {

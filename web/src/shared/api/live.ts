@@ -15,6 +15,7 @@ export interface LiveDriver {
   acronym: string
   name: string
   team: string
+  teamColour: string
   gap: number | string | null
   interval: number | string | null
   lastLap: number | null
@@ -85,6 +86,29 @@ export const fetchSessions = (meetingKey: number) =>
 
 /** 30.123 → "30.123" */
 export const formatSector = (s: number | null) => (s == null ? '—' : s.toFixed(3))
+
+/** openf1 session names → ru */
+const SESSION_NAMES: Record<string, string> = {
+  'Practice 1': 'Практика 1',
+  'Practice 2': 'Практика 2',
+  'Practice 3': 'Практика 3',
+  Qualifying: 'Квалификация',
+  'Sprint Qualifying': 'Спринт-квалификация',
+  'Sprint Shootout': 'Спринт-квалификация',
+  Sprint: 'Спринт',
+  Race: 'Гонка',
+  'Day 1': 'День 1',
+  'Day 2': 'День 2',
+  'Day 3': 'День 3',
+}
+export const sessionLabel = (name: string) => SESSION_NAMES[name] ?? name
+
+/** "F47600" → readable text colour on top of it */
+export const inkOn = (hex: string) => {
+  const n = parseInt(hex, 16)
+  const lum = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255
+  return lum > 0.55 ? 'var(--ink)' : 'var(--paper)'
+}
 
 /** SOFT → "S" */
 export const compoundLetter = (c: string) => (c === 'INTERMEDIATE' ? 'I' : c.charAt(0))

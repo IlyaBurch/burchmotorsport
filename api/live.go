@@ -25,8 +25,9 @@ type Driver struct {
 	Acronym  string      `json:"acronym"`
 	Name     string      `json:"name"`
 	Team     string      `json:"team"`
-	Gap      any         `json:"gap"`      // seconds (float) or text like "+1 LAP"
-	Interval any         `json:"interval"` // same
+	Colour   string      `json:"teamColour"` // hex without #, from openf1
+	Gap      any         `json:"gap"`        // seconds (float) or text like "+1 LAP"
+	Interval any         `json:"interval"`   // same
 	LastLap  *float64    `json:"lastLap"`
 	BestLap  *float64    `json:"bestLap"`
 	Lap      int         `json:"lap"`
@@ -196,6 +197,7 @@ func fetchLive(sessionKey string) (Live, error) {
 		Acronym string `json:"name_acronym"`
 		Name    string `json:"full_name"`
 		Team    string `json:"team_name"`
+		Colour  string `json:"team_colour"`
 	}
 	var positions []struct {
 		Number   int `json:"driver_number"`
@@ -270,7 +272,7 @@ func fetchLive(sessionKey string) (Live, error) {
 	byNum := map[int]*Driver{}
 	out := make([]Driver, 0, len(drivers))
 	for _, d := range drivers {
-		out = append(out, Driver{Number: d.Number, Acronym: d.Acronym, Name: d.Name, Team: d.Team})
+		out = append(out, Driver{Number: d.Number, Acronym: d.Acronym, Name: d.Name, Team: d.Team, Colour: d.Colour})
 	}
 	for i := range out {
 		byNum[out[i].Number] = &out[i]

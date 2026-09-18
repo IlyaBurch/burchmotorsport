@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compoundLetter, formatGap, formatLap, formatSector } from './live'
+import { compoundLetter, formatGap, formatLap, formatSector, inkOn, sessionLabel } from './live'
 
 describe('live formatters', () => {
   it('formats laps as m:ss.mmm', () => {
@@ -17,5 +17,11 @@ describe('live formatters', () => {
     expect(formatSector(30.1)).toBe('30.100')
     expect(compoundLetter('INTERMEDIATE')).toBe('I')
     expect(compoundLetter('SOFT')).toBe('S')
+  })
+  it('localizes sessions and picks readable ink', () => {
+    expect(sessionLabel('Race')).toBe('Гонка')
+    expect(sessionLabel('Weird')).toBe('Weird')
+    expect(inkOn('FFFFFF')).toBe('var(--ink)')
+    expect(inkOn('0000FF')).toBe('var(--paper)')
   })
 })
