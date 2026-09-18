@@ -4,8 +4,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 )
+
+// RADIO_RELAY=http://relay-host:8080 makes this instance fetch through another
+// instance abroad. F1's CDN geo-blocks Russia, the site is hosted there.
+var radioRelay = os.Getenv("RADIO_RELAY")
 
 // GET /api/radio?url=https://livetiming.formula1.com/static/.../x.mp3
 // ponytail: plain pass-through so the browser never talks to F1's CDN directly.
@@ -17,7 +23,11 @@ func radioHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad url", http.StatusBadRequest)
 		return
 	}
-	req, _ := http.NewRequestWithContext(r.Context(), "GET", u, nil)
+	target := u
+	if radioRelay != "" {
+		target = radioRelay + "/api/radio?url=" + url.QueryEscape(u)
+	}
+	req, _ := http.NewRequestWithContext(r.Context(), "GET", target, nil)
 	req.Header.Set("Range", r.Header.Get("Range")) // let <audio> seek
 	resp, err := client.Do(req)
 	if err != nil {
