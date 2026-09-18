@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLocalStorage } from '@vueuse/core'
-import { Maximize, Minimize, PanelRightClose, PanelRightOpen, Volume2 } from 'lucide-vue-next'
+import { Columns2, Layers, Maximize, Minimize, PanelRightClose, PanelRightOpen, Volume2 } from 'lucide-vue-next'
 import { BmButton, BmCard, BmChip, BmInput, BmModal, BmTabs } from '@/shared/ui'
 import { parseRutubeId } from '@/shared/lib/rutube'
 import { resolveRutube, sessionLabel } from '@/shared/api/live'
@@ -72,6 +72,7 @@ function unmute() {
   player.value?.unmute()
 }
 const toggleFullscreen = () => (theater.fullscreen.value ? theater.exit() : theater.enter())
+const toggleMode = () => (theater.mode.value = theater.mode.value === 'side' ? 'over' : 'side')
 
 // --- one-time warning about broadcast vs timing offset ---------------------------
 const warned = useLocalStorage('bm.watch.warned', false)
@@ -120,9 +121,15 @@ function ack() {
 
       <div ref="wrapper" class="watch__stage" :class="`watch__stage--${theater.mode.value}`">
         <RutubePlayer ref="player" :video-id="videoId" class="watch__video" />
-        <BmButton v-if="theater.fullscreen.value" class="watch__exit" aria-label="Выйти из полного экрана" @click="theater.exit()">
-          <Minimize :size="20" :stroke-width="2.5" />
-        </BmButton>
+        <div v-if="theater.fullscreen.value" class="watch__fs-controls">
+          <BmButton aria-label="Выйти из полного экрана" @click="theater.exit()">
+            <Minimize :size="20" :stroke-width="2.5" />
+          </BmButton>
+          <BmButton :aria-label="theater.mode.value === 'side' ? 'Панель поверх видео' : 'Панель рядом с видео'" @click="toggleMode">
+            <Layers v-if="theater.mode.value === 'side'" :size="20" :stroke-width="2.5" />
+            <Columns2 v-else :size="20" :stroke-width="2.5" />
+          </BmButton>
+        </div>
 
         <div v-if="theater.mode.value === 'over'" class="watch__overlay">
           <BmButton class="watch__toggle" :aria-label="panelOpen ? 'Скрыть телеметрию' : 'Показать телеметрию'" @click="panelOpen = !panelOpen">
@@ -222,11 +229,13 @@ function ack() {
   width: 100%;
 }
 
-.watch__exit {
+.watch__fs-controls {
   position: absolute;
   top: var(--space-4);
   left: var(--space-4);
   z-index: 2;
+  display: flex;
+  gap: var(--space-2);
 }
 
 /* fullscreen: only video + panel, in whichever mode was picked */
