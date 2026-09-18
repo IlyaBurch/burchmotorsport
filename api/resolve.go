@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -9,14 +8,13 @@ import (
 	"time"
 )
 
-// Resolve maps a RuTube video to an openf1 session: publication date picks the
-// weekend, the title picks the session type, a country in the title confirms.
+// Resolve maps a video title to an openf1 session. The title is all we get:
+// the RuTube player hands it to the browser via getPlayOptions, and RuTube's
+// own API is unreachable from outside Russia, so the server never talks to it.
 type Resolve struct {
-	Title      string   `json:"title"`
-	Published  string   `json:"published"`
-	Session    *Session `json:"session"`    // nil when nothing matched
-	Confidence string   `json:"confidence"` // "date+title", "date", "title", ""
-	F1         bool     `json:"f1"`         // looks like Formula 1 at all
+	Title   string   `json:"title"`
+	Session *Session `json:"session"` // nil when nothing matched
+	F1      bool     `json:"f1"`      // looks like Formula 1 at all
 }
 
 // \b is ASCII-only in Go, so word edges are spelled out for the Cyrillic forms
@@ -35,16 +33,23 @@ var sessionWords = []struct {
 	{regexp.MustCompile(`(?i)гонк|race`), "Race"},
 }
 
-// ru title fragment → openf1 country_name. Lowercase, stem-ish.
+// ru/en title fragment → openf1 country_name. Lowercase, stem-ish.
 var countries = map[string]string{
-	"австрал": "Australia", "кита": "China", "япон": "Japan", "бахрейн": "Bahrain", "саудов": "Saudi Arabia",
-	"майами": "United States", "эмилия": "Italy", "имол": "Italy", "монако": "Monaco", "испан": "Spain", "барселон": "Spain",
-	"канад": "Canada", "австри": "Austria", "великобритан": "United Kingdom", "британ": "United Kingdom", "сильверстоун": "United Kingdom",
-	"бельги": "Belgium", "венгр": "Hungary", "нидерланд": "Netherlands", "голланд": "Netherlands", "итали": "Italy", "монц": "Italy",
-	"азербайджан": "Azerbaijan", "баку": "Azerbaijan", "сингапур": "Singapore", "сша": "United States", "остин": "United States",
-	"мексик": "Mexico", "бразил": "Brazil", "лас-вегас": "United States", "вегас": "United States", "катар": "Qatar", "абу-даби": "United Arab Emirates", "абу даби": "United Arab Emirates",
-	"мадрид": "Spain", "малайз": "Malaysia",
+	"австрал": "Australia", "australia": "Australia", "кита": "China", "china": "China", "япон": "Japan", "japan": "Japan",
+	"бахрейн": "Bahrain", "bahrain": "Bahrain", "саудов": "Saudi Arabia", "saudi": "Saudi Arabia",
+	"майами": "United States", "miami": "United States", "эмилия": "Italy", "имол": "Italy", "imola": "Italy",
+	"монако": "Monaco", "monaco": "Monaco", "испан": "Spain", "spain": "Spain", "барселон": "Spain", "мадрид": "Spain", "madrid": "Spain",
+	"канад": "Canada", "canada": "Canada", "австри": "Austria", "austria": "Austria",
+	"великобритан": "United Kingdom", "британ": "United Kingdom", "british": "United Kingdom", "сильверстоун": "United Kingdom", "silverstone": "United Kingdom",
+	"бельги": "Belgium", "belgi": "Belgium", "венгр": "Hungary", "hungar": "Hungary", "нидерланд": "Netherlands", "голланд": "Netherlands", "dutch": "Netherlands",
+	"итали": "Italy", "монц": "Italy", "monza": "Italy", "italian": "Italy",
+	"азербайджан": "Azerbaijan", "баку": "Azerbaijan", "baku": "Azerbaijan", "сингапур": "Singapore", "singapore": "Singapore",
+	"сша": "United States", "остин": "United States", "austin": "United States", "лас-вегас": "United States", "вегас": "United States", "vegas": "United States",
+	"мексик": "Mexico", "mexic": "Mexico", "бразил": "Brazil", "brazil": "Brazil", "катар": "Qatar", "qatar": "Qatar",
+	"абу-даби": "United Arab Emirates", "абу даби": "United Arab Emirates", "abu dhabi": "United Arab Emirates", "малайз": "Malaysia", "malaysia": "Malaysia",
 }
+
+var yearRe = regexp.MustCompile(`\b(20\d\d)\b`)
 
 func sessionFromTitle(title string) string {
 	for _, w := range sessionWords {
@@ -65,99 +70,38 @@ func countryFromTitle(title string) string {
 	return ""
 }
 
-var yearRe = regexp.MustCompile(`\b(20\d\d)\b`)
-
-// GET /api/resolve?rutube=<id>
+// GET /api/resolve?title=<video title>
 func resolveHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("rutube")
-	if !regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(id) {
-		http.Error(w, "bad id", http.StatusBadRequest)
+	title := strings.TrimSpace(r.URL.Query().Get("title"))
+	if title == "" || len(title) > 300 {
+		http.Error(w, "bad title", http.StatusBadRequest)
 		return
 	}
-	v, err := store.get("resolve:"+id, func() (any, time.Duration, error) {
-		res, err := resolveRutube(id)
-		return res, forever, err
+	v, err := store.get("resolve:"+title, func() (any, time.Duration, error) {
+		res, err := resolveTitle(title)
+		return res, 24 * time.Hour, err
 	})
 	writeJSON(w, v, err)
 }
 
-var rutubeAPI = "https://rutube.ru/api/video/"
-
-func resolveRutube(id string) (Resolve, error) {
-	req, _ := http.NewRequest("GET", rutubeAPI+id+"/", nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0 burchmotorsport") // rutube 403s the default Go UA
-	resp, err := client.Do(req)
-	if err != nil {
-		return Resolve{}, err
+func resolveTitle(title string) (Resolve, error) {
+	country := countryFromTitle(title)
+	res := Resolve{Title: title, F1: f1Re.MatchString(title) || country != ""}
+	if country == "" {
+		return res, nil
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return Resolve{}, fmt.Errorf("rutube %s: %s", id, resp.Status)
+	year := yearRe.FindString(title)
+	if year == "" {
+		year = fmt.Sprint(time.Now().Year())
 	}
-	var meta struct {
-		Title       string `json:"title"`
-		Publication string `json:"publication_ts"`
-		Created     string `json:"created_ts"`
+	var s []Session
+	q := fmt.Sprintf("sessions?year=%s&country_name=%s&session_name=%s",
+		year, strings.ReplaceAll(country, " ", "%20"), strings.ReplaceAll(sessionFromTitle(title), " ", "%20"))
+	if err := cached(q, forever, &s); err != nil {
+		return res, err
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
-		return Resolve{}, err
-	}
-	pub := meta.Publication
-	if pub == "" {
-		pub = meta.Created
-	}
-	res := Resolve{Title: meta.Title, Published: pub, F1: f1Re.MatchString(meta.Title)}
-
-	want := sessionFromTitle(meta.Title)
-	country := countryFromTitle(meta.Title)
-
-	// 1. by date: sessions that started in the 4 days before publication.
-	// Only for titles that look like F1, or every cat video from a race sunday would match.
-	if t, e := time.Parse("2006-01-02T15:04:05", pub); e == nil && (res.F1 || country != "") {
-		var s []Session
-		q := fmt.Sprintf("sessions?date_start>=%s&date_start<=%s", t.Add(-4*24*time.Hour).Format("2006-01-02"), t.Add(6*time.Hour).Format("2006-01-02T15:04:05"))
-		if err := cached(q, forever, &s); err == nil {
-			if best := pick(s, want, country); best != nil {
-				res.Session, res.Confidence, res.F1 = best, "date", true
-				if country != "" && best.Country == country {
-					res.Confidence = "date+title"
-				}
-				return res, nil
-			}
-		}
-	}
-	// 2. by title: country + year (re-uploads published long after the weekend)
-	if year := yearRe.FindString(meta.Title); year != "" && country != "" {
-		var s []Session
-		q := fmt.Sprintf("sessions?year=%s&country_name=%s&session_name=%s", year, strings.ReplaceAll(country, " ", "%20"), strings.ReplaceAll(want, " ", "%20"))
-		if err := cached(q, forever, &s); err == nil && len(s) > 0 {
-			res.Session, res.Confidence, res.F1 = &s[len(s)-1], "title", true
-		}
+	if len(s) > 0 {
+		res.Session, res.F1 = &s[len(s)-1], true
 	}
 	return res, nil
-}
-
-// pick prefers the wanted session type in the wanted country, then the wanted
-// type anywhere, then the latest session. Latest wins on ties.
-func pick(s []Session, want, country string) *Session {
-	var byType, any *Session
-	for i := range s {
-		x := &s[i]
-		if any == nil || x.Start > any.Start {
-			any = x
-		}
-		if x.Name != want {
-			continue
-		}
-		if country != "" && x.Country == country {
-			return x
-		}
-		if byType == nil || x.Start > byType.Start {
-			byType = x
-		}
-	}
-	if byType != nil {
-		return byType
-	}
-	return any
 }

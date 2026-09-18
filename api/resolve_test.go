@@ -7,26 +7,26 @@ import (
 	"testing"
 )
 
-func TestResolveRutube(t *testing.T) {
+func TestResolveTitle(t *testing.T) {
 	resetCache()
-	rt := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"title":"Формула 1 - Гран-При Великобритании 2025 - Гонка | Сильверстоун","publication_ts":"2025-07-06T16:27:21"}`))
-	}))
-	defer rt.Close()
 	of := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.RawQuery, "date_start") {
-			t.Fatalf("expected a date query first, got %s", r.URL.RawQuery)
+		q := r.URL.RawQuery
+		if !strings.Contains(q, "year=2025") || !strings.Contains(q, "country_name=United%20Kingdom") || !strings.Contains(q, "session_name=Race") {
+			t.Fatalf("unexpected query %s", q)
 		}
-		w.Write([]byte(`[
-			{"session_key":1,"session_name":"Qualifying","country_name":"United Kingdom","date_start":"2025-07-05T14:00:00+00:00"},
-			{"session_key":2,"session_name":"Race","country_name":"United Kingdom","date_start":"2025-07-06T14:00:00+00:00"}]`))
+		w.Write([]byte(`[{"session_key":9947,"session_name":"Race","country_name":"United Kingdom","date_start":"2025-07-06T14:00:00+00:00"}]`))
 	}))
 	defer of.Close()
-	rutubeAPI, openf1 = rt.URL+"/", of.URL+"/"
+	openf1 = of.URL + "/"
 
-	got, err := resolveRutube("ee1a3832d90cc60b507ff90a4d978a43")
-	if err != nil || got.Session == nil || got.Session.Key != 2 || got.Confidence != "date+title" {
+	got, err := resolveTitle("Формула 1 - Гран-При Великобритании 2025 - Гонка | Сильверстоун")
+	if err != nil || got.Session == nil || got.Session.Key != 9947 || !got.F1 {
 		t.Fatalf("got %+v err %v", got, err)
+	}
+
+	got, _ = resolveTitle("Котики играют")
+	if got.F1 || got.Session != nil {
+		t.Fatalf("cats are not F1: %+v", got)
 	}
 }
 
@@ -49,29 +49,10 @@ func TestSessionFromTitle(t *testing.T) {
 		t.Error("country from title")
 	}
 	for title, want := range map[string]bool{
-		"Формула 1 - Гран-При Италии": true, "F1 Monza race": true, "Ф1 Монца": true,
-		"ГОНКА ГООННККААААА Великобритания 9 этап 2026": false, // relies on the country hit instead
-		"Котики играют": false,
+		"Формула 1 - Гран-При Италии": true, "F1 Monza race": true, "Ф1 Монца": true, "Котики играют": false,
 	} {
 		if f1Re.MatchString(title) != want {
 			t.Errorf("f1 %q want %v", title, want)
 		}
-	}
-}
-
-func TestResolveNotF1(t *testing.T) {
-	resetCache()
-	rt := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"title":"Котики играют","publication_ts":"2025-07-06T16:27:21"}`))
-	}))
-	defer rt.Close()
-	of := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Fatalf("openf1 must not be asked about a cat video: %s", r.URL)
-	}))
-	defer of.Close()
-	rutubeAPI, openf1 = rt.URL+"/", of.URL+"/"
-	got, err := resolveRutube("ee1a3832d90cc60b507ff90a4d978a43")
-	if err != nil || got.F1 || got.Session != nil {
-		t.Fatalf("got %+v err %v", got, err)
 	}
 }

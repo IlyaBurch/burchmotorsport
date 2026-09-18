@@ -4,12 +4,13 @@ import { rutubeEmbedUrl } from '@/shared/lib/rutube'
 import { useRutube } from '../model/useRutube'
 
 const props = defineProps<{ videoId: string }>()
-const emit = defineEmits<{ state: [state: string]; time: [seconds: number] }>()
+const emit = defineEmits<{ state: [state: string]; time: [seconds: number]; title: [title: string] }>()
 
 const frame = ref<HTMLIFrameElement | null>(null)
 const player = useRutube(frame)
 watch(player.state, (s) => emit('state', s))
 watch(player.currentTime, (t) => emit('time', t))
+watch(player.title, (t) => emit('title', t))
 
 defineExpose({
   unmute: () => player.send('player:unMute'),

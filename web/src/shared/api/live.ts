@@ -92,14 +92,12 @@ export interface Session {
 
 export interface Resolved {
   title: string
-  published: string
   session: (LiveSession & { country_name: string }) | null
-  confidence: 'date+title' | 'date' | 'title' | ''
   f1: boolean
 }
 
-/** which openf1 session a RuTube video is about, by its date and title */
-export const resolveRutube = (id: string) => getJSON<Resolved>(`/api/resolve?rutube=${id}`)
+/** which openf1 session a video is about, judging by its title */
+export const resolveTitle = (title: string) => getJSON<Resolved>(`/api/resolve?title=${encodeURIComponent(title)}`)
 
 /** previous year's race on the same circuit, for previews of upcoming sessions */
 export async function findPreviousRace(circuit: string, year: number): Promise<Session | null> {

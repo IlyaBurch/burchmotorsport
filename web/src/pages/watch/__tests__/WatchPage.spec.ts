@@ -14,6 +14,14 @@ async function mountAt(path: string, handler: (url: string) => Response = () => 
   return { w, router }
 }
 
+/** what the RuTube iframe posts once getPlayOptions=title is loaded */
+async function playerTitle(title: string) {
+  window.dispatchEvent(
+    new MessageEvent('message', { origin: 'https://rutube.ru', data: JSON.stringify({ type: 'player:playOptionLoaded', data: { title } }) }),
+  )
+  await flushPromises()
+}
+
 describe('WatchPage', () => {
   it('asks for a link and rejects non-rutube ones', async () => {
     const { w, router } = await mountAt('/watch')
@@ -32,12 +40,13 @@ describe('WatchPage', () => {
     expect(w.find('iframe').attributes('src')).toContain(`/play/embed/${id}`)
   })
 
-  it('resolves the session from the video when the url has none', async () => {
+  it('resolves the session from the video title when the url has none', async () => {
     const { w, router } = await mountAt(`/watch?v=${id}`, (url) =>
       url.startsWith('/api/resolve')
-        ? new Response(JSON.stringify({ title: 't', published: '', confidence: 'date+title', session: { session_key: 9947 } }), { status: 200 })
+        ? new Response(JSON.stringify({ title: 't', session: { session_key: 9947 }, f1: true }), { status: 200 })
         : new Response('no data', { status: 404 }),
     )
+    await playerTitle('Формула 1 - Гран-При Великобритании 2025 - Гонка')
     expect(router.currentRoute.value.query.session).toBe('9947')
     expect(w.text()).toContain('По видео')
   })
@@ -45,9 +54,10 @@ describe('WatchPage', () => {
   it('sends non-F1 videos back to the form', async () => {
     const { w, router } = await mountAt(`/watch?v=${id}`, (url) =>
       url.startsWith('/api/resolve')
-        ? new Response(JSON.stringify({ title: 'Котики', published: '', confidence: '', session: null, f1: false }), { status: 200 })
+        ? new Response(JSON.stringify({ title: 'Котики', session: null, f1: false }), { status: 200 })
         : new Response('no data', { status: 404 }),
     )
+    await playerTitle('Котики играют')
     expect(router.currentRoute.value.query.v).toBeUndefined()
     expect(w.find('iframe').exists()).toBe(false)
     expect(w.text()).toContain('не Формула 1')

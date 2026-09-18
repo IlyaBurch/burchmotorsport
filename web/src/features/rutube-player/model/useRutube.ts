@@ -13,13 +13,14 @@ export function useRutube(iframe: Ref<HTMLIFrameElement | null>) {
   const state = ref<'idle' | 'playing' | 'paused' | 'stopped'>('idle')
   const currentTime = ref(0)
   const ready = ref(false)
+  const title = ref('')
 
   const send = (type: Command, data: Record<string, unknown> = {}) =>
     iframe.value?.contentWindow?.postMessage(JSON.stringify({ type, data }), 'https://rutube.ru')
 
   const onMessage = (e: MessageEvent) => {
     if (e.origin !== 'https://rutube.ru') return
-    let msg: { type?: string; data?: { state?: string; time?: number } }
+    let msg: { type?: string; data?: { state?: string; time?: number; title?: string } }
     try {
       msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
     } catch {
@@ -35,10 +36,14 @@ export function useRutube(iframe: Ref<HTMLIFrameElement | null>) {
       case 'player:currentTime':
         currentTime.value = msg.data?.time ?? currentTime.value
         break
+      case 'player:playOptionLoaded':
+      case 'player:playOptionsLoaded': // docs spell it both ways
+        if (msg.data?.title) title.value = msg.data.title
+        break
     }
   }
   window.addEventListener('message', onMessage)
   onScopeDispose(() => window.removeEventListener('message', onMessage))
 
-  return { state, currentTime, ready, send }
+  return { state, currentTime, ready, title, send }
 }

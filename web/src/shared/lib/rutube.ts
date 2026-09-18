@@ -12,4 +12,6 @@ export function parseRutubeId(input: string): string | null {
   }
 }
 
-export const rutubeEmbedUrl = (id: string) => `https://rutube.ru/play/embed/${id}?autostartmute=true&autoplay=1`
+// getPlayOptions=title makes the player post the video title (player:playOptionLoaded)
+export const rutubeEmbedUrl = (id: string) =>
+  `https://rutube.ru/play/embed/${id}?autostartmute=true&autoplay=1&getPlayOptions=title`
