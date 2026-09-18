@@ -9,8 +9,14 @@ import (
 func handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
+		tier, auth := "free", "n/a"
+		if sponsored() {
+			tier, auth = "sponsor", "ok"
+			if _, err := bearer(); err != nil {
+				auth = err.Error()
+			}
+		}
+		writeJSON(w, map[string]string{"status": "ok", "openf1": tier, "auth": auth}, nil)
 	})
 	mux.HandleFunc("GET /api/live", liveHandler)
 	mux.HandleFunc("GET /api/meetings", meetingsHandler)
