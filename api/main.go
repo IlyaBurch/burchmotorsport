@@ -15,6 +15,7 @@ func handler() http.Handler {
 	mux.HandleFunc("GET /api/live", liveHandler)
 	mux.HandleFunc("GET /api/meetings", meetingsHandler)
 	mux.HandleFunc("GET /api/sessions", sessionsHandler)
+	mux.HandleFunc("GET /api/track", trackHandler)
 	return mux
 }
 

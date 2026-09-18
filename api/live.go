@@ -36,6 +36,8 @@ type Driver struct {
 	Compound string      `json:"compound"`    // SOFT/MEDIUM/HARD/INTERMEDIATE/WET
 	TyreAge  int         `json:"tyreAge"`     // laps on current set
 	Pits     int         `json:"pits"`
+	X        int         `json:"x"` // track coords, 0,0 if unknown
+	Y        int         `json:"y"`
 }
 
 type Weather struct {
@@ -110,6 +112,59 @@ func sessionsHandler(w http.ResponseWriter, r *http.Request) {
 		return s, time.Hour, get("sessions?meeting_key="+mk, &s)
 	})
 	writeJSON(w, v, err)
+}
+
+// GET /api/track?session_key=latest|<int> -> [[x,y],...] outline of one lap
+func trackHandler(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Query().Get("session_key")
+	if key == "" {
+		key = "latest"
+	}
+	v, err := store.get("track:"+key, func() (any, time.Duration, error) {
+		pts, err := fetchTrack(key)
+		return pts, forever, err
+	})
+	writeJSON(w, v, err)
+}
+
+// ponytail: outline = one full lap of whoever completed lap 3. Good enough for
+// a map; swap for a static per-circuit SVG if openf1 ever drops location.
+func fetchTrack(sessionKey string) ([][2]int, error) {
+	var laps []struct {
+		Number   int      `json:"driver_number"`
+		Start    string   `json:"date_start"`
+		Duration *float64 `json:"lap_duration"`
+	}
+	if err := get("laps?lap_number=3&session_key="+sessionKey, &laps); err != nil {
+		return nil, err
+	}
+	for _, l := range laps {
+		if l.Duration == nil || l.Start == "" {
+			continue
+		}
+		start, err := time.Parse(time.RFC3339Nano, l.Start)
+		if err != nil {
+			continue
+		}
+		end := start.Add(time.Duration(*l.Duration * float64(time.Second)))
+		time.Sleep(400 * time.Millisecond)
+		var loc []struct{ X, Y int }
+		q := fmt.Sprintf("location?session_key=%s&driver_number=%d&date>=%s&date<%s",
+			sessionKey, l.Number, start.Format(time.RFC3339), end.Format(time.RFC3339))
+		if err := get(q, &loc); err != nil {
+			return nil, err
+		}
+		pts := make([][2]int, 0, len(loc))
+		for _, p := range loc {
+			if p.X != 0 || p.Y != 0 {
+				pts = append(pts, [2]int{p.X, p.Y})
+			}
+		}
+		if len(pts) > 50 {
+			return pts, nil
+		}
+	}
+	return nil, fmt.Errorf("openf1: no location data for lap 3")
 }
 
 var openf1 = "https://api.openf1.org/v1/"
@@ -189,6 +244,29 @@ func fetchLive(sessionKey string) (Live, error) {
 		}
 	}
 
+	// car positions: last 10s for a live session, around the chequered flag otherwise
+	at := time.Now().UTC().Add(-10 * time.Second)
+	if end, e := time.Parse(time.RFC3339, sessions[0].End); e == nil && end.Add(time.Hour).Before(time.Now()) {
+		at = end.Add(-10 * time.Second)
+		for _, m := range rc {
+			if m.Flag == "CHEQUERED" {
+				if t, e := time.Parse(time.RFC3339Nano, m.Date); e == nil {
+					at = t.Add(-5 * time.Second)
+				}
+				break
+			}
+		}
+	}
+	var loc []struct {
+		Number int `json:"driver_number"`
+		X, Y   int
+	}
+	time.Sleep(400 * time.Millisecond)
+	if err := get(fmt.Sprintf("location?session_key=%s&date>=%s&date<%s", key,
+		at.Format(time.RFC3339), at.Add(10*time.Second).Format(time.RFC3339)), &loc); err != nil {
+		return Live{}, err
+	}
+
 	byNum := map[int]*Driver{}
 	out := make([]Driver, 0, len(drivers))
 	for _, d := range drivers {
@@ -240,6 +318,11 @@ func fetchLive(sessionKey string) (Live, error) {
 	for i := range out {
 		if out[i].Pits > 0 {
 			out[i].Pits--
+		}
+	}
+	for _, p := range loc {
+		if d := byNum[p.Number]; d != nil && (p.X != 0 || p.Y != 0) {
+			d.X, d.Y = p.X, p.Y
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {

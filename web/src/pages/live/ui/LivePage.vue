@@ -9,6 +9,7 @@ import {
   fetchLive,
   fetchMeetings,
   fetchSessions,
+  fetchTrack,
   formatGap,
   formatLap,
   formatSector,
@@ -18,11 +19,13 @@ import {
   type Meeting,
   type Session,
 } from '@/shared/api/live'
+import TrackMap from './TrackMap.vue'
 
 const route = useRoute()
 const router = useRouter()
 
 const live = ref<Live | null>(null)
+const outline = ref<[number, number][]>([])
 const error = ref<string | null>(null)
 
 const sessionKey = computed(() => String(route.query.session ?? 'latest'))
@@ -39,8 +42,10 @@ async function refresh() {
 const poll = useIntervalFn(refresh, 5000, { immediate: false })
 watch(
   sessionKey,
-  async () => {
+  async (key) => {
     live.value = null
+    outline.value = []
+    fetchTrack(key).then((o) => (outline.value = o)).catch(() => {}) // map is optional
     await refresh()
     const l = live.value as Live | null
     if (l && !isFinished(l.session)) poll.resume()
@@ -130,7 +135,7 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 
 <template>
   <section class="live">
-    <BmCard>
+    <BmCard class="live__head">
       <div class="live__title-row">
         <div>
           <div class="bm-card__eyebrow">{{ finished ? 'Архив' : 'Live' }}</div>
@@ -147,14 +152,6 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
         </div>
         <BmChip v-if="trackFlag" :variant="flagTone(trackFlag)">{{ trackFlag }}</BmChip>
       </div>
-
-      <dl v-if="live?.weather" class="live__weather">
-        <div><dt class="display-sm">Воздух</dt><dd class="timing">{{ live.weather.air_temperature }}°</dd></div>
-        <div><dt class="display-sm">Трасса</dt><dd class="timing">{{ live.weather.track_temperature }}°</dd></div>
-        <div><dt class="display-sm">Влажн.</dt><dd class="timing">{{ live.weather.humidity }}%</dd></div>
-        <div><dt class="display-sm">Ветер</dt><dd class="timing">{{ live.weather.wind_speed }} м/с</dd></div>
-        <div><dt class="display-sm">Дождь</dt><dd class="timing">{{ live.weather.rainfall ? 'Да' : 'Нет' }}</dd></div>
-      </dl>
 
       <div class="live__pickers">
         <label>
@@ -192,12 +189,35 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
       </div>
     </BmCard>
 
+    <aside class="live__side">
+      <TrackMap v-if="outline.length && live" :outline="outline" :drivers="live.drivers" />
+      <div v-else class="live__skeleton live__skeleton--map" aria-busy="true" aria-label="Загрузка карты" />
+
+      <dl v-if="live?.weather" class="live__weather">
+        <div><dt class="display-sm">Воздух</dt><dd class="timing">{{ live.weather.air_temperature }}°</dd></div>
+        <div><dt class="display-sm">Трасса</dt><dd class="timing">{{ live.weather.track_temperature }}°</dd></div>
+        <div><dt class="display-sm">Влажн.</dt><dd class="timing">{{ live.weather.humidity }}%</dd></div>
+        <div><dt class="display-sm">Ветер</dt><dd class="timing">{{ live.weather.wind_speed }} м/с</dd></div>
+        <div><dt class="display-sm">Дождь</dt><dd class="timing">{{ live.weather.rainfall ? 'Да' : 'Нет' }}</dd></div>
+      </dl>
+
+      <BmCard v-if="live?.raceControl.length" class="live__rc-card">
+        <div class="bm-card__eyebrow">Race control</div>
+        <ol class="live__rc">
+          <li v-for="m in live.raceControl.slice(0, 8)" :key="m.date + m.message">
+            <span class="timing-sm">L{{ m.lap_number || '—' }}</span>
+            <span class="body-sm">{{ m.message }}</span>
+          </li>
+        </ol>
+      </BmCard>
+    </aside>
+
     <div class="live__table-wrap">
       <table class="live__table">
         <thead>
           <tr class="display-sm">
-            <th>P</th>
-            <th>Пилот</th>
+            <th class="live__sticky live__sticky--pos">P</th>
+            <th class="live__sticky live__sticky--drv">Пилот</th>
             <th>Шины</th>
             <th class="live__num">Пит</th>
             <th class="live__num">Отрыв</th>
@@ -212,8 +232,8 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
         </thead>
         <tbody v-if="live">
           <tr v-for="d in live.drivers" :key="d.number">
-            <td class="display-sm">{{ d.position || '—' }}</td>
-            <td class="body-strong">
+            <td class="display-sm live__sticky live__sticky--pos">{{ d.position || '—' }}</td>
+            <td class="body-strong live__sticky live__sticky--drv">
               {{ d.acronym }}
               <span class="body-sm live__name">{{ d.name }}</span>
             </td>
@@ -247,23 +267,27 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
         </tbody>
       </table>
     </div>
-
-    <BmCard v-if="live?.raceControl.length">
-      <div class="bm-card__eyebrow">Race control</div>
-      <ol class="live__rc">
-        <li v-for="m in live.raceControl.slice(0, 8)" :key="m.date + m.message">
-          <span class="timing-sm">L{{ m.lap_number || '—' }}</span>
-          <span class="body">{{ m.message }}</span>
-        </li>
-      </ol>
-    </BmCard>
   </section>
 </template>
 
 <style scoped>
+/* mobile first: head, map+info, table stacked; desktop puts the side column next to the table */
 .live {
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-4);
+  grid-template-areas: 'head' 'side' 'table';
+}
+
+.live__head { grid-area: head; }
+.live__side { grid-area: side; display: grid; gap: var(--space-4); align-content: start; }
+.live__table-wrap { grid-area: table; }
+
+@media (min-width: 1024px) {
+  .live {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas: 'head head' 'table side';
+    gap: var(--space-6);
+  }
 }
 
 .live__title-row {
@@ -278,12 +302,13 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 }
 
 .live__weather {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-6);
-  margin: var(--space-4) 0 0;
-  padding-top: var(--space-4);
-  border-top: var(--border-thin) solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: var(--border-thin) solid var(--border);
 }
 
 .live__weather dt {
@@ -296,8 +321,8 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 
 .live__pickers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
   margin-top: var(--space-4);
   padding-top: var(--space-4);
   border-top: var(--border-thin) solid var(--border);
@@ -332,7 +357,8 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 
 .live__table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .live__table th,
@@ -341,6 +367,7 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
   text-align: left;
   white-space: nowrap;
   vertical-align: middle;
+  border-bottom: 1px solid var(--border);
 }
 
 .live__table thead th {
@@ -348,8 +375,27 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
   border-bottom: var(--border-thin) solid var(--border);
 }
 
-.live__table tbody tr + tr td {
-  border-top: 1px solid var(--border);
+.live__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* P + driver stay put while the rest scrolls on narrow screens */
+.live__sticky {
+  position: sticky;
+  background: var(--surface-sunken);
+  z-index: 1;
+}
+
+.live__sticky--pos { left: 0; }
+.live__sticky--drv { left: 44px; }
+
+.live__sticky--drv::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  border-right: 1px solid var(--border);
 }
 
 .live__num {
@@ -371,6 +417,12 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
   height: 24px;
   background: var(--surface-raised);
   animation: live-blink 1s steps(2) infinite;
+}
+
+.live__skeleton--map {
+  aspect-ratio: 4 / 3;
+  height: auto;
+  border: var(--border-thick) solid var(--border);
 }
 
 @keyframes live-blink {
@@ -395,8 +447,8 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 
 .live__rc li {
   display: grid;
-  grid-template-columns: 48px 1fr;
-  gap: var(--space-3);
+  grid-template-columns: 44px 1fr;
+  gap: var(--space-2);
   align-items: baseline;
 }
 </style>

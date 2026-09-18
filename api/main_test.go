@@ -33,6 +33,8 @@ func TestFetchLiveMerges(t *testing.T) {
 			w.Write([]byte(`[{"air_temperature":20},{"air_temperature":25}]`))
 		case "/race_control":
 			w.Write([]byte(`[{"message":"old"},{"message":"new"}]`))
+		case "/location":
+			w.Write([]byte(`[{"driver_number":1,"x":10,"y":20},{"driver_number":1,"x":11,"y":21}]`))
 		default:
 			w.Write([]byte(`[]`))
 		}
@@ -56,6 +58,9 @@ func TestFetchLiveMerges(t *testing.T) {
 	}
 	if nor.Compound != "HARD" || nor.TyreAge != 1 || nor.Pits != 1 {
 		t.Fatalf("bad stint: %+v", nor)
+	}
+	if nor.X != 11 || nor.Y != 21 {
+		t.Fatalf("bad location: %+v", nor)
 	}
 	if got.Weather.Air != 25 || got.RaceControl[0].Message != "new" {
 		t.Fatalf("bad weather/rc: %+v %+v", got.Weather, got.RaceControl)

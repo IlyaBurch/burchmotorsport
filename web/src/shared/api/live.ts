@@ -26,6 +26,8 @@ export interface LiveDriver {
   compound: string
   tyreAge: number
   pits: number
+  x: number
+  y: number
 }
 
 export interface Weather {
@@ -76,6 +78,8 @@ export const FIRST_SEASON = 2023 // openf1 has no data before
 export const fetchLive = (sessionKey: string | number = 'latest') =>
   getJSON<Live>(`/api/live?session_key=${sessionKey}`)
 export const fetchMeetings = (year: number) => getJSON<Meeting[]>(`/api/meetings?year=${year}`)
+export const fetchTrack = (sessionKey: string | number) =>
+  getJSON<[number, number][]>(`/api/track?session_key=${sessionKey}`)
 export const fetchSessions = (meetingKey: number) =>
   getJSON<Session[]>(`/api/sessions?meeting_key=${meetingKey}`)
 

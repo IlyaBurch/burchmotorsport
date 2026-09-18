@@ -12,6 +12,7 @@ const router = createRouter({
       path: '/live',
       name: 'live',
       component: () => import('@/pages/live/ui/LivePage.vue'),
+      meta: { full: true }, // edge-to-edge, no bm-container
     },
     {
       path: '/design-system',
