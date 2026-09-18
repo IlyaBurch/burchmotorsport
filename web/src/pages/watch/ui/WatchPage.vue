@@ -48,6 +48,8 @@ function open() {
   router.replace({ query: { v: id } }) // a new video gets its own session, drop the old one
 }
 
+watch(linkError, (err) => err && theme.value === 'night-lords' && new Audio('/audio/idi-nakh-i.mp3').play().catch(() => {}))
+
 // --- telemetry for the session from the url ------------------------------------
 const sessionKey = computed(() => String(route.query.session ?? 'latest'))
 const { live, outline, error, upcoming, finished } = useLiveSession(sessionKey)
