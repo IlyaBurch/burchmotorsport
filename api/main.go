@@ -13,6 +13,8 @@ func handler() http.Handler {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.HandleFunc("GET /api/live", liveHandler)
+	mux.HandleFunc("GET /api/meetings", meetingsHandler)
+	mux.HandleFunc("GET /api/sessions", sessionsHandler)
 	return mux
 }
 

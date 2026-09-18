@@ -1,5 +1,6 @@
 export interface LiveSession {
   session_key: number
+  meeting_key: number
   session_name: string
   session_type: string
   circuit_short_name: string
@@ -27,11 +28,36 @@ export interface Live {
   updatedAt: string
 }
 
-export async function fetchLive(): Promise<Live> {
-  const res = await fetch('/api/live')
-  if (!res.ok) throw new Error(`live: ${res.status}`)
+export interface Meeting {
+  meeting_key: number
+  meeting_name: string
+  country_name: string
+  date_start: string
+}
+
+export interface Session {
+  session_key: number
+  session_name: string
+  date_start: string
+}
+
+async function getJSON<T>(url: string): Promise<T> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`${url}: ${res.status}`)
   return res.json()
 }
+
+export const FIRST_SEASON = 2023 // openf1 has no data before
+
+export const fetchLive = (sessionKey: string | number = 'latest') =>
+  getJSON<Live>(`/api/live?session_key=${sessionKey}`)
+export const fetchMeetings = (year: number) => getJSON<Meeting[]>(`/api/meetings?year=${year}`)
+export const fetchSessions = (meetingKey: number) =>
+  getJSON<Session[]>(`/api/sessions?meeting_key=${meetingKey}`)
+
+/** session is over (with an hour of slack) → no need to poll */
+export const isFinished = (s: LiveSession) =>
+  Date.parse(s.date_end) + 3600_000 < Date.now()
 
 /** 96.03 → "1:36.030" */
 export function formatLap(s: number | null): string {

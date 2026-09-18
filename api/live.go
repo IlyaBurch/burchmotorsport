@@ -5,16 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"sync"
 	"time"
 )
 
-// ponytail: single in-memory cache, refreshed on demand. Move to a background
-// poller + SSE if page count or latency ever matters.
-const liveTTL = 5 * time.Second
-
 type Session struct {
 	Key     int    `json:"session_key"`
+	Meeting int    `json:"meeting_key"`
 	Name    string `json:"session_name"`
 	Type    string `json:"session_type"`
 	Circuit string `json:"circuit_short_name"`
@@ -42,28 +38,54 @@ type Live struct {
 	UpdatedAt string   `json:"updatedAt"`
 }
 
-var live struct {
-	sync.Mutex
-	data Live
-	at   time.Time
-	err  error
-}
+const forever = 100 * 365 * 24 * time.Hour
 
-func liveHandler(w http.ResponseWriter, _ *http.Request) {
-	live.Lock()
-	if time.Since(live.at) > liveTTL {
-		live.data, live.err = fetchLive()
-		live.at = time.Now()
-	}
-	data, err := live.data, live.err
-	live.Unlock()
-
+func writeJSON(w http.ResponseWriter, v any, err error) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	json.NewEncoder(w).Encode(v)
+}
+
+// GET /api/live?session_key=latest|<int>
+func liveHandler(w http.ResponseWriter, r *http.Request) {
+	key := r.URL.Query().Get("session_key")
+	if key == "" {
+		key = "latest"
+	}
+	v, err := store.get("live:"+key, func() (any, time.Duration, error) {
+		l, err := fetchLive(key)
+		if err != nil {
+			return nil, 0, err
+		}
+		if end, e := time.Parse(time.RFC3339, l.Session.End); e == nil && end.Add(time.Hour).Before(time.Now()) {
+			return l, forever, nil
+		}
+		return l, 5 * time.Second, nil
+	})
+	writeJSON(w, v, err)
+}
+
+// GET /api/meetings?year=2025 -> openf1 meetings, cached for a day
+func meetingsHandler(w http.ResponseWriter, r *http.Request) {
+	year := r.URL.Query().Get("year")
+	v, err := store.get("meetings:"+year, func() (any, time.Duration, error) {
+		var m []json.RawMessage
+		return m, 24 * time.Hour, get("meetings?year="+year, &m)
+	})
+	writeJSON(w, v, err)
+}
+
+// GET /api/sessions?meeting_key=1294 -> openf1 sessions of a meeting
+func sessionsHandler(w http.ResponseWriter, r *http.Request) {
+	mk := r.URL.Query().Get("meeting_key")
+	v, err := store.get("sessions:"+mk, func() (any, time.Duration, error) {
+		var s []json.RawMessage
+		return s, time.Hour, get("sessions?meeting_key="+mk, &s)
+	})
+	writeJSON(w, v, err)
 }
 
 var openf1 = "https://api.openf1.org/v1/"
@@ -80,9 +102,9 @@ func get(path string, v any) error {
 	return json.NewDecoder(resp.Body).Decode(v)
 }
 
-func fetchLive() (Live, error) {
+func fetchLive(sessionKey string) (Live, error) {
 	var sessions []Session
-	if err := get("sessions?session_key=latest", &sessions); err != nil {
+	if err := get("sessions?session_key="+sessionKey, &sessions); err != nil {
 		return Live{}, err
 	}
 	if len(sessions) == 0 {

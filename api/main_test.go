@@ -32,7 +32,7 @@ func TestFetchLiveMerges(t *testing.T) {
 	defer srv.Close()
 	openf1 = srv.URL + "/"
 
-	got, err := fetchLive()
+	got, err := fetchLive("latest")
 	if err != nil {
 		t.Fatal(err)
 	}
