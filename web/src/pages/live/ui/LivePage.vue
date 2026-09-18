@@ -6,6 +6,7 @@ import { BmCard, BmChip } from '@/shared/ui'
 import {
   FIRST_SEASON,
   NoDataError,
+  RateLimitError,
   compoundLetter,
   countdown,
   fetchLive,
@@ -48,18 +49,26 @@ useIntervalFn(() => (now.value = Date.now()), 30_000)
 
 const sessionKey = computed(() => String(route.query.session ?? 'latest'))
 
+let retryTimer: ReturnType<typeof setTimeout> | undefined
 async function refresh() {
+  clearTimeout(retryTimer)
   try {
     live.value = await fetchLive(sessionKey.value)
     error.value = null
     noData.value = false
   } catch (e) {
     noData.value = e instanceof NoDataError
-    error.value = noData.value ? null : e instanceof Error ? e.message : String(e)
+    if (e instanceof RateLimitError) {
+      error.value = `Лимит OpenF1, повтор через ${e.seconds} с`
+      retryTimer = setTimeout(refresh, e.seconds * 1000)
+    } else {
+      error.value = noData.value ? null : 'Нет связи с данными'
+    }
   }
 }
+onScopeDispose(() => clearTimeout(retryTimer))
 
-const poll = useIntervalFn(refresh, 5000, { immediate: false })
+const poll = useIntervalFn(refresh, 10_000, { immediate: false })
 watch(
   sessionKey,
   async (key) => {
@@ -231,7 +240,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
             <template v-else-if="upcoming">Старт {{ formatMsk(live!.session.date_start) }}</template>
             <template v-else-if="live">Круг {{ leaderLap }} · обновлено {{ updated }}</template>
             <template v-else-if="noData">Данных нет</template>
-            <template v-else-if="error">Нет связи с данными</template>
+            <template v-else-if="error">Ошибка</template>
             <template v-else>Загрузка</template>
           </p>
           <BmChip v-if="error" variant="red">{{ error }}</BmChip>

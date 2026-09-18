@@ -91,9 +91,17 @@ export interface Session {
 /** the api knows the session but has no timing rows for it */
 export class NoDataError extends Error {}
 
+/** openf1 budget spent; retry after `seconds` */
+export class RateLimitError extends Error {
+  constructor(public seconds: number) {
+    super(`rate limited for ${seconds}s`)
+  }
+}
+
 async function getJSON<T>(url: string): Promise<T> {
   const res = await fetch(url)
   if (res.status === 404) throw new NoDataError(url)
+  if (res.status === 503) throw new RateLimitError(Number(res.headers.get('Retry-After')) || 60)
   if (!res.ok) throw new Error(`${url}: ${res.status}`)
   return res.json()
 }

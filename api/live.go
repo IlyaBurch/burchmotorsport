@@ -102,6 +102,11 @@ const forever = 100 * 365 * 24 * time.Hour
 
 func writeJSON(w http.ResponseWriter, v any, err error) {
 	if err != nil {
+		if d := cooling(); d > 0 {
+			w.Header().Set("Retry-After", fmt.Sprint(int(d.Seconds())+1))
+			http.Error(w, "openf1 rate limit", http.StatusServiceUnavailable)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
@@ -126,7 +131,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 		if end, e := time.Parse(time.RFC3339, l.Session.End); e == nil && end.Add(time.Hour).Before(time.Now()) {
 			return l, forever, nil
 		}
-		return l, 5 * time.Second, nil
+		return l, 10 * time.Second, nil // underlying endpoints have their own ttls
 	})
 	if errors.Is(err, errNoData) {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -176,7 +181,7 @@ func fetchTrack(sessionKey string) ([][2]int, error) {
 		Start    string   `json:"date_start"`
 		Duration *float64 `json:"lap_duration"`
 	}
-	if err := get("laps?lap_number=3&session_key="+sessionKey, &laps); err != nil {
+	if err := cached("laps?lap_number=3&session_key="+sessionKey, forever, &laps); err != nil {
 		return nil, err
 	}
 	for _, l := range laps {
@@ -191,7 +196,7 @@ func fetchTrack(sessionKey string) ([][2]int, error) {
 		var loc []struct{ X, Y int }
 		q := fmt.Sprintf("location?session_key=%s&driver_number=%d&date>=%s&date<%s",
 			sessionKey, l.Number, start.Format(time.RFC3339), end.Format(time.RFC3339))
-		if err := get(q, &loc); err != nil {
+		if err := cached(q, forever, &loc); err != nil {
 			return nil, err
 		}
 		pts := make([][2]int, 0, len(loc))
@@ -209,26 +214,70 @@ func fetchTrack(sessionKey string) ([][2]int, error) {
 
 var openf1 = "https://api.openf1.org/v1/"
 
-// ponytail: one global 3 req/s limiter for openf1, shared by every fetch.
-var limiter = time.Tick(340 * time.Millisecond)
+// ponytail: one global limiter for openf1 (3 req/s), shared by every fetch.
+// A mutex + timestamp, not time.Tick: Tick buffers a tick and lets two calls
+// through at once after idle, which is exactly what got us 429s.
+var (
+	limMu   sync.Mutex
+	limLast time.Time
+)
+
+const limInterval = 400 * time.Millisecond
+
+func throttle() {
+	limMu.Lock()
+	defer limMu.Unlock()
+	if d := time.Until(limLast.Add(limInterval)); d > 0 {
+		time.Sleep(d)
+	}
+	limLast = time.Now()
+}
 
 var client = &http.Client{Timeout: 20 * time.Second}
 
-// get fetches one openf1 endpoint, retrying once on 429/5xx or a network error.
+// openf1 answers 429 with Retry-After once the per-minute budget is spent.
+// Until then every call fails fast instead of digging the hole deeper.
+var (
+	coolMu    sync.Mutex
+	coolUntil time.Time
+)
+
+func cooling() time.Duration {
+	coolMu.Lock()
+	defer coolMu.Unlock()
+	return time.Until(coolUntil)
+}
+
+// get fetches one openf1 endpoint, retrying once on 5xx or a network error.
 func get(path string, v any) error {
+	if d := cooling(); d > 0 {
+		return fmt.Errorf("openf1 %s: rate limited, %s left", path, d.Round(time.Second))
+	}
 	var err error
 	for attempt := 0; attempt < 2; attempt++ {
 		if attempt > 0 {
 			log.Printf("openf1 retry %s: %v", path, err)
-			time.Sleep(time.Second)
+			time.Sleep(2 * time.Second)
 		}
-		<-limiter
+		throttle()
 		var resp *http.Response
 		resp, err = client.Get(openf1 + path)
 		if err != nil {
 			continue
 		}
-		if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		if resp.StatusCode == 429 {
+			resp.Body.Close()
+			wait := 60 * time.Second
+			if ra, e := time.ParseDuration(resp.Header.Get("Retry-After") + "s"); e == nil && ra > 0 {
+				wait = ra
+			}
+			coolMu.Lock()
+			coolUntil = time.Now().Add(wait)
+			coolMu.Unlock()
+			log.Printf("openf1 429 on %s, cooling down %s", path, wait)
+			return fmt.Errorf("openf1 %s: 429, cooling down %s", path, wait)
+		}
+		if resp.StatusCode >= 500 {
 			resp.Body.Close()
 			err = fmt.Errorf("openf1 %s: %s", path, resp.Status)
 			continue
@@ -244,15 +293,38 @@ func get(path string, v any) error {
 	return err
 }
 
+// cached wraps get with a per-path cache so each openf1 endpoint is refreshed on
+// its own schedule. Raw JSON is stored and decoded into v on every hit.
+func cached(path string, ttl time.Duration, v any) error {
+	raw, err := store.get("u:"+path, func() (any, time.Duration, error) {
+		var r json.RawMessage
+		return r, ttl, get(path, &r)
+	})
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw.(json.RawMessage), v)
+}
+
 func fetchLive(sessionKey string) (Live, error) {
 	var sessions []Session
-	if err := get("sessions?session_key="+sessionKey, &sessions); err != nil {
+	if err := cached("sessions?session_key="+sessionKey, time.Minute, &sessions); err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return Live{}, errNoData
+		}
 		return Live{}, err
 	}
 	if len(sessions) == 0 {
-		return Live{}, fmt.Errorf("openf1: no session")
+		return Live{}, errNoData
 	}
 	key := fmt.Sprint(sessions[0].Key)
+
+	// free openf1 tier: 30 req/min. Budget per live session: hot 4×6/min,
+	// warm 4×1/min, cold ~0 → ~28/min. Finished sessions never change.
+	hot, warm, cold := 10*time.Second, time.Minute, 10*time.Minute
+	if end, e := time.Parse(time.RFC3339, sessions[0].End); e == nil && end.Add(time.Hour).Before(time.Now()) {
+		hot, warm, cold = forever, forever, forever
+	}
 
 	var drivers []struct {
 		Number  int    `json:"driver_number"`
@@ -302,18 +374,18 @@ func fetchLive(sessionKey string) (Live, error) {
 	}
 	var radio []Radio
 
-	// all in parallel, the limiter in get() paces them to 3 req/s
+	// all in parallel, throttle() paces the ones that miss cache
 	if err := getAll(
-		query{"drivers?session_key=" + key, &drivers},
-		query{"position?session_key=" + key, &positions},
-		query{"intervals?session_key=" + key, &intervals},
-		query{"laps?session_key=" + key, &laps},
-		query{"stints?session_key=" + key, &stints},
-		query{"weather?session_key=" + key, &weather},
-		query{"race_control?session_key=" + key, &rc},
-		query{"championship_drivers?session_key=" + key, &champ},
-		query{"championship_teams?session_key=" + key, &champTeams},
-		query{"team_radio?session_key=" + key, &radio},
+		query{"drivers?session_key=" + key, cold, &drivers},
+		query{"position?session_key=" + key, hot, &positions},
+		query{"intervals?session_key=" + key, hot, &intervals},
+		query{"laps?session_key=" + key, hot, &laps},
+		query{"stints?session_key=" + key, warm, &stints},
+		query{"weather?session_key=" + key, warm, &weather},
+		query{"race_control?session_key=" + key, warm, &rc},
+		query{"championship_drivers?session_key=" + key, cold, &champ},
+		query{"championship_teams?session_key=" + key, cold, &champTeams},
+		query{"team_radio?session_key=" + key, warm, &radio},
 	); err != nil {
 		if !strings.Contains(err.Error(), "404") {
 			return Live{}, err
@@ -326,7 +398,7 @@ func fetchLive(sessionKey string) (Live, error) {
 	}
 
 	// car positions: last 10s for a live session, around the chequered flag otherwise
-	at := time.Now().UTC().Add(-10 * time.Second)
+	at := time.Now().UTC().Truncate(10 * time.Second).Add(-10 * time.Second)
 	if end, e := time.Parse(time.RFC3339, sessions[0].End); e == nil && end.Add(time.Hour).Before(time.Now()) {
 		at = end.Add(-10 * time.Second)
 		for _, m := range rc {
@@ -342,9 +414,9 @@ func fetchLive(sessionKey string) (Live, error) {
 		Number int `json:"driver_number"`
 		X, Y   int
 	}
-	if err := get(fmt.Sprintf("location?session_key=%s&date>=%s&date<%s", key,
-		at.Format(time.RFC3339), at.Add(10*time.Second).Format(time.RFC3339)), &loc); err != nil {
-		return Live{}, err
+	if err := cached(fmt.Sprintf("location?session_key=%s&date>=%s&date<%s", key,
+		at.Format(time.RFC3339), at.Add(10*time.Second).Format(time.RFC3339)), hot, &loc); err != nil {
+		log.Printf("location: %v", err) // map dots are optional, timing is not
 	}
 
 	byNum := map[int]*Driver{}
@@ -499,6 +571,7 @@ func fetchLive(sessionKey string) (Live, error) {
 
 type query struct {
 	path string
+	ttl  time.Duration
 	into any
 }
 
@@ -509,7 +582,7 @@ func getAll(qs ...query) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			errs[i] = get(q.path, q.into)
+			errs[i] = cached(q.path, q.ttl, q.into)
 		}()
 	}
 	wg.Wait()

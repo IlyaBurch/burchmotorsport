@@ -15,7 +15,10 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func resetCache() { store = cache{m: map[string]*entry{}} }
+
 func TestFetchLiveMerges(t *testing.T) {
+	resetCache()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/sessions":
@@ -90,6 +93,7 @@ func TestFetchLiveMerges(t *testing.T) {
 }
 
 func TestFetchLiveUpcomingAndMissing(t *testing.T) {
+	resetCache()
 	start := "2099-01-01T00:00:00+00:00"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/sessions" {
@@ -106,6 +110,7 @@ func TestFetchLiveUpcomingAndMissing(t *testing.T) {
 		t.Fatalf("future session should be upcoming, got %v %+v", err, got)
 	}
 	start = "2000-01-01T00:00:00+00:00"
+	resetCache()
 	if _, err := fetchLive("1"); err != errNoData {
 		t.Fatalf("past session without rows should be errNoData, got %v", err)
 	}
