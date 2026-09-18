@@ -69,12 +69,6 @@ type Stint struct {
 	To       int    `json:"to"`   // lap, inclusive
 }
 
-type Pit struct {
-	Number   int      `json:"driver_number"`
-	Lap      int      `json:"lap_number"`
-	Duration *float64 `json:"pit_duration"` // seconds in the pit lane
-}
-
 type Team struct {
 	Name   string  `json:"name"`
 	Colour string  `json:"colour"`
@@ -295,7 +289,6 @@ func fetchLive(sessionKey string) (Live, error) {
 		Pts  float64 `json:"points_start"`
 	}
 	var radio []Radio
-	var pits []Pit
 
 	// all in parallel, the limiter in get() paces them to 3 req/s
 	if err := getAll(
@@ -309,7 +302,6 @@ func fetchLive(sessionKey string) (Live, error) {
 		query{"championship_drivers?session_key=" + key, &champ},
 		query{"championship_teams?session_key=" + key, &champTeams},
 		query{"team_radio?session_key=" + key, &radio},
-		query{"pit?session_key=" + key, &pits},
 	); err != nil {
 		return Live{}, err
 	}
@@ -473,7 +465,7 @@ func fetchLive(sessionKey string) (Live, error) {
 		teams = append(teams, team)
 	}
 
-	live := Live{Session: sessions[0], Drivers: out, Teams: teams, Pits: pits, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+	live := Live{Session: sessions[0], Drivers: out, Teams: teams, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
 	for i := len(radio) - 1; i >= 0; i-- {
 		live.Radio = append(live.Radio, radio[i])
 	}

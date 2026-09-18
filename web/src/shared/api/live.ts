@@ -58,12 +58,6 @@ export interface Team {
   champPoints: number
 }
 
-export interface Pit {
-  driver_number: number
-  lap_number: number
-  pit_duration: number | null
-}
-
 export interface Radio {
   date: string
   driver_number: number
@@ -74,7 +68,6 @@ export interface Live {
   session: LiveSession
   drivers: LiveDriver[]
   teams: Team[]
-  pits: Pit[]
   radio: Radio[]
   weather: Weather | null
   raceControl: RaceControl[]
