@@ -14,7 +14,7 @@ const route = useRoute()
   <BmHeader>
     <NextRace />
     <RouterLink class="bm-btn bm-btn--ghost" to="/live">
-      Live
+      Телеметрия
     </RouterLink>
     <BmButton :aria-label="theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'" @click="toggle">
       <Sun v-if="theme === 'dark'" :size="20" :stroke-width="2.5" />

@@ -51,7 +51,9 @@ const left = computed(() => {
     :to="{ path: '/live', query: { session: String(next.session_key) } }"
     :title="startMsk"
   >
-    <span class="body-sm next__what">Далее: {{ next.country_name }} · {{ sessionLabel(next.session_name) }}</span>
+    <span class="body-sm next__what">
+      <span class="next__prefix">Далее: </span>{{ next.country_name }} · {{ sessionLabel(next.session_name) }}
+    </span>
     <span class="display-sm next__left">{{ left }}</span>
   </RouterLink>
 </template>
@@ -79,7 +81,15 @@ const left = computed(() => {
 }
 
 @media (max-width: 639px) {
+  .next {
+    padding-inline: var(--space-2);
+  }
+
   .next__what {
+    font-size: 12px;
+  }
+
+  .next__prefix {
     display: none;
   }
 }
