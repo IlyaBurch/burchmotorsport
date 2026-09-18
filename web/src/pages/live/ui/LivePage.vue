@@ -351,7 +351,8 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 
 /* chequered: the brand checker pattern from bm.css, text on a solid plate so it stays readable */
 .live__flag--chequered {
-  padding: var(--space-2);
+  padding: var(--space-3);
+  background-size: 40px 40px; /* sector bar uses 12px, too busy at banner size */
 }
 
 .live__flag--chequered span {
