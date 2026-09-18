@@ -1,0 +1,20 @@
+services:
+  web:
+    build: ./web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - caddy_data:/data
+    depends_on:
+      - api
+
+  api:
+    build: ./api
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
