@@ -16,8 +16,9 @@ defineProps<{ label: string; colour?: string; wide?: boolean }>()
 <style scoped>
 .plate {
   display: inline-block;
-  min-width: 48px;
-  padding: 0 var(--space-2);
+  width: 56px; /* fixed so columns of plates line up everywhere */
+  padding: 0 var(--space-1);
+  box-sizing: border-box;
   border: var(--border-thin) solid var(--border);
   text-align: center;
   white-space: nowrap;
@@ -27,6 +28,7 @@ defineProps<{ label: string; colour?: string; wide?: boolean }>()
 
 .plate--wide {
   display: block;
+  width: auto;
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
