@@ -6,7 +6,7 @@ import { Skull, Zap } from 'lucide-vue-next'
   <!-- decorative: wings of lightning around a skull, all lucide, no third-party art -->
   <span class="emblem" aria-hidden="true" title="Ave Dominus Nox">
     <Zap :size="20" :stroke-width="2.5" class="emblem__wing emblem__wing--l" />
-    <Skull :size="24" :stroke-width="2.5" />
+    <Skull :size="24" :stroke-width="2.5" class="emblem__skull" />
     <Zap :size="20" :stroke-width="2.5" class="emblem__wing" />
   </span>
 </template>
@@ -16,7 +16,11 @@ import { Skull, Zap } from 'lucide-vue-next'
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--accent-2, var(--accent)); /* bronze trim, red only in the eyes of the crowd */
+  color: var(--accent); /* crimson wings */
+}
+
+.emblem__skull {
+  color: var(--text); /* bone */
 }
 
 .emblem__wing--l {

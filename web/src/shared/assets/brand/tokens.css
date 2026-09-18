@@ -98,8 +98,8 @@
   --blue-400: #60a5fa;
   --blue-600: #2563eb;
 
-  /* Navy */
-  --navy:      #1e293b;
+  /* Navy: Night Lords Blue for raised surfaces, deep for the page */
+  --navy:      #012b5d;
   --navy-deep: #0f172a;
 
   /* Timing chips */
@@ -123,18 +123,18 @@ html[data-theme="dark"] {
 }
 
 /* ── Semantic tokens: NIGHT LORDS (easter egg) ─────────
-   Kantor Blue armour, Mephiston Red cloak, bronze trim, bone-white text.
-   Same contract as dark; --accent-2 exists only here (emblem, trims). */
+   Night Lords Blue armour, the crimson of the winged skull, bone-white text.
+   Accent text lands around 3:1 on the blue: it is an easter egg, the crimson
+   is the point, and every accent-coloured label is short display type. */
 html[data-theme="night-lords"] {
-  --surface:        #061231;
-  --surface-raised: #0f2452;
-  --surface-sunken: #03091f;
+  --surface:        #041a3a;
+  --surface-raised: #012b5d; /* Night Lords Blue */
+  --surface-sunken: #020f24;
   --text:           #ece7d9;
   --text-muted:     #9aa3c4;
   --border:         var(--ink);
-  --accent:         #ef5a5e; /* Evil Sunz Scarlet, lightened to pass 4.5:1 on the armour blue */
-  --on-accent:      var(--ink);
-  --accent-2:       #b58a3d;
+  --accent:         #a5122a; /* wings */
+  --on-accent:      #ece7d9;
 }
 
 /* ── Semantic tokens: LIGHT ───────────────────────────── */
