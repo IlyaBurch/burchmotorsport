@@ -152,6 +152,7 @@ html[data-theme="night-lords"] {
   --accent:         #880015; /* the wings */
   --on-accent:      #ece7d9;
   --font-display:   'Kelly Slab', 'Exo 2', system-ui, sans-serif;
+  --font-body:      'Kelly Slab', 'Onest', system-ui, sans-serif; /* one face for everything but timing digits */
 }
 
 /* Kelly Slab has one weight and no italic: keep browsers from faking them */
@@ -160,7 +161,11 @@ html[data-theme="night-lords"] [class*=" display-"],
 html[data-theme="night-lords"] .bm-card__eyebrow,
 html[data-theme="night-lords"] .bm-card__title,
 html[data-theme="night-lords"] .bm-btn,
-html[data-theme="night-lords"] .bm-tabs__item {
+html[data-theme="night-lords"] .bm-tabs__item,
+html[data-theme="night-lords"] .body-lg,
+html[data-theme="night-lords"] .body,
+html[data-theme="night-lords"] .body-strong,
+html[data-theme="night-lords"] .body-sm {
   font-style: normal;
   font-weight: 400;
   letter-spacing: 0.02em;
