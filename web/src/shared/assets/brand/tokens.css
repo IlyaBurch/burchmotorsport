@@ -166,6 +166,11 @@ html[data-theme="night-lords"] .bm-tabs__item {
   letter-spacing: 0.02em;
 }
 
+/* small crimson labels vanish on the armour blue: lift them to a readable crimson */
+html[data-theme="night-lords"] .bm-card__eyebrow {
+  color: #ee6479;
+}
+
 /* ── Semantic tokens: LIGHT ───────────────────────────── */
 html[data-theme="light"] {
   --surface:        var(--paper);
