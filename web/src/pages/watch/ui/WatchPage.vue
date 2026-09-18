@@ -10,6 +10,7 @@ import { useLiveSession } from '@/entities/session'
 import { RutubePlayer } from '@/features/rutube-player'
 import { useTheater, type PanelMode } from '@/features/theater-mode'
 import { LivePanel } from '@/widgets/live-panel'
+import { SessionPicker } from '@/features/session-picker'
 
 const route = useRoute()
 const router = useRouter()
@@ -117,6 +118,7 @@ function ack() {
           <BmChip v-if="resolved === 'found'" variant="green">По видео</BmChip>
           <BmChip v-else-if="resolved === 'missed'" variant="yellow">Сессию по видео не нашли</BmChip>
         </div>
+        <SessionPicker :live="live" class="watch__picker" />
         <div class="watch__controls">
           <BmTabs v-model="theater.mode.value" :tabs="modes" />
           <BmButton variant="primary" @click="unmute">
@@ -178,6 +180,11 @@ function ack() {
     grid-template-columns: 1fr auto;
     align-items: end;
   }
+}
+
+.watch__picker {
+  flex-basis: 100%;
+  border-top: 0;
 }
 
 .watch__bar {

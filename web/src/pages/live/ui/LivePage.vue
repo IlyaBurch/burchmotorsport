@@ -1,15 +1,12 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useIntervalFn } from '@vueuse/core'
 import { BmCard, BmChip } from '@/shared/ui'
 import {
-  FIRST_SEASON,
   compoundLetter,
   countdown,
   fetchLive,
-  fetchMeetings,
-  fetchSessions,
   fetchTrack,
   findPreviousRace,
   flagClass,
@@ -26,15 +23,13 @@ import {
   sessionLabel,
   trackLimitsFrom,
   type Live,
-  type Meeting,
-  type Session,
 } from '@/shared/api/live'
 import { useLiveSession, TrackMap, DriverPlate } from '@/entities/session'
+import { SessionPicker } from '@/features/session-picker'
 import PositionsChart from './PositionsChart.vue'
 import TyreChart from './TyreChart.vue'
 
 const route = useRoute()
-const router = useRouter()
 
 const sessionKey = computed(() => String(route.query.session ?? 'latest'))
 const { live, outline, error, noData, upcoming, finished, loading } = useLiveSession(sessionKey)
@@ -59,54 +54,6 @@ async function loadPreview(l: Live) {
     /* preview is optional */
   }
 }
-const weekend = computed(() =>
-  live.value?.upcoming
-    ? sessions.value.map((x) => ({ ...x, started: Date.parse(x.date_start) <= now.value }))
-    : [],
-)
-
-// --- pickers -------------------------------------------------------------
-// Only user actions navigate. Loading a session just syncs the pickers.
-const seasons = Array.from(
-  { length: new Date().getFullYear() - FIRST_SEASON + 1 },
-  (_, i) => FIRST_SEASON + i,
-).reverse()
-
-const year = ref<number | null>(null)
-const meetingKey = ref<number | null>(null)
-const meetings = ref<Meeting[]>([])
-const sessions = ref<Session[]>([])
-
-const loadMeetings = async (y: number) => (meetings.value = await fetchMeetings(y))
-const loadSessions = async (mk: number) => (sessions.value = await fetchSessions(mk))
-const goTo = (key: number) => router.replace({ query: { session: String(key) } })
-
-async function onYear(e: Event) {
-  year.value = Number((e.target as HTMLSelectElement).value)
-  await loadMeetings(year.value)
-  const last = meetings.value[meetings.value.length - 1]
-  if (last) await onMeeting(last.meeting_key)
-}
-
-async function onMeeting(mk: number) {
-  meetingKey.value = mk
-  await loadSessions(mk)
-  const last = sessions.value[sessions.value.length - 1]
-  if (last) goTo(last.session_key)
-}
-
-watch(live, async (l) => {
-  if (!l) return
-  const y = new Date(l.session.date_start).getFullYear()
-  if (y !== year.value) {
-    year.value = y
-    await loadMeetings(y)
-  }
-  if (l.session.meeting_key !== meetingKey.value) {
-    meetingKey.value = l.session.meeting_key
-    await loadSessions(meetingKey.value)
-  }
-})
 
 // --- derived -------------------------------------------------------------
 const leaderLap = computed(() => live.value?.drivers[0]?.lap ?? 0)
@@ -226,43 +173,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         <BmChip v-if="trackFlag" :variant="flagTone(trackFlag)">{{ trackFlag }}</BmChip>
       </div>
 
-      <details class="live__details">
-        <summary class="display-sm live__summary">Другая сессия</summary>
-      <div class="live__pickers">
-        <label>
-          <span class="display-sm">Сезон</span>
-          <select class="live__select body" :value="year ?? ''" @change="onYear">
-            <option v-for="y in seasons" :key="y" :value="y">{{ y }}</option>
-          </select>
-        </label>
-        <label>
-          <span class="display-sm">Гран-при</span>
-          <select
-            class="live__select body"
-            :disabled="!meetings.length"
-            :value="meetingKey ?? ''"
-            @change="onMeeting(Number(($event.target as HTMLSelectElement).value))"
-          >
-            <option v-for="m in meetings" :key="m.meeting_key" :value="m.meeting_key">
-              {{ m.meeting_name }}
-            </option>
-          </select>
-        </label>
-        <label>
-          <span class="display-sm">Сессия</span>
-          <select
-            class="live__select body"
-            :disabled="!sessions.length"
-            :value="live?.session.session_key ?? ''"
-            @change="goTo(Number(($event.target as HTMLSelectElement).value))"
-          >
-            <option v-for="s in sessions" :key="s.session_key" :value="s.session_key">
-              {{ sessionLabel(s.session_name) }}
-            </option>
-          </select>
-        </label>
-      </div>
-      </details>
+      <SessionPicker :live="live" class="live__picker" />
     </BmCard>
 
     <section v-if="upcoming" class="live__status live__preview">
@@ -274,18 +185,6 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         </p>
         <p class="body">Старт {{ formatMsk(live!.session.date_start) }}</p>
 
-        <div v-if="weekend.length" class="live__weekend">
-          <div class="display-sm live__weekend-title">Уикенд</div>
-          <ol class="live__list">
-            <li v-for="x in weekend" :key="x.session_key" class="live__weekend-row" :class="{ 'live__weekend-row--current': x.session_key === live!.session.session_key }">
-              <RouterLink class="body-strong live__weekend-link" :to="{ path: '/live', query: { session: String(x.session_key) } }">
-                {{ sessionLabel(x.session_name) }}
-              </RouterLink>
-              <span class="timing-sm">{{ formatMsk(x.date_start) }}</span>
-              <BmChip v-if="x.started" variant="green">Была</BmChip>
-            </li>
-          </ol>
-        </div>
       </BmCard>
 
       <div class="live__preview-side">
@@ -590,33 +489,6 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   margin: var(--space-3) 0;
 }
 
-.live__weekend {
-  margin-top: var(--space-6);
-  padding-top: var(--space-4);
-  border-top: var(--border-thin) solid var(--border);
-}
-
-.live__weekend-title {
-  color: var(--text-muted);
-}
-
-.live__weekend-row {
-  max-width: none;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.live__weekend-row--current .live__weekend-link {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.live__weekend-link {
-  padding: 0 var(--space-2);
-}
-
 .live__podium {
   max-width: none;
   display: grid;
@@ -629,6 +501,219 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   margin-top: var(--space-4);
 }
 .live__cards { grid-area: cards; }
+.live__table-wrap { grid-area: table; display: none; }
+
+/* driver cards (mobile) */
+.live__cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .live__cards { display: none; }
+  .live__table-wrap { display: block; }
+}
+
+.live__card {
+  max-width: none;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  background: var(--surface-sunken);
+  border: var(--border-thin) solid var(--border);
+}
+
+.live__card-id {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background: var(--surface-raised);
+  border-right: var(--border-thin) solid var(--border);
+}
+
+.live__card-body {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1.3fr 0.6fr;
+  gap: 1px;
+  background: var(--border);
+}
+
+.live__cell {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--space-1);
+  background: var(--surface-sunken);
+  text-align: center;
+}
+
+.live__cell--laps {
+  background: var(--surface-raised);
+}
+
+.live__cell--sector {
+  grid-column: span 1;
+}
+
+.live__card-body .live__cell--sector:nth-of-type(5) {
+  grid-column: 1 / 2;
+}
+
+.live__card-body .live__cell--sector:nth-of-type(7) {
+  grid-column: 3 / 5;
+}
+
+.live__muted {
+  color: var(--text-muted);
+}
+.live__side { grid-area: side; display: flex; flex-direction: column; gap: var(--space-4); }
+.live__chart { grid-area: chart; }
+.live__tyres { grid-area: tyres; }
+.live__drivers { grid-area: drivers; }
+.live__teams { grid-area: teams; }
+.live__pen {
+  grid-area: pen;
+  display: grid;
+  grid-template-rows: 1fr 1fr; /* two equal cards, as tall as the standings row */
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.live__pen-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.live__pen-card > .live__list,
+.live__pen-card > .live__limits {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.live__rc { grid-area: rc; }
+
+.live__radio { grid-area: radio; }
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .live {
+    grid-template-areas: 'flag' 'head' 'status' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
+  }
+}
+
+@media (min-width: 1024px) {
+  .live {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 360px;
+    grid-template-areas:
+      'flag flag flag'
+      'head head head'
+      'status status status'
+      'table table side'
+      'chart chart chart'
+      'tyres tyres tyres'
+      'drivers teams pen'
+      'rc rc rc'
+      'radio radio radio';
+    gap: var(--space-6);
+  }
+}
+
+.live__flag {
+  grid-area: flag;
+  padding: var(--space-3) var(--space-4);
+  text-align: center;
+  color: var(--ink);
+  border: var(--border-thick) solid var(--border);
+  box-shadow: var(--shadow-hard);
+}
+
+.live__flag--green { background: var(--timing-green); }
+.live__flag--yellow { background: var(--timing-yellow); }
+.live__flag--red { background: var(--flag-red); }
+.live__flag--purple { background: var(--timing-purple); }
+.live__flag--default { background: var(--surface-raised); color: var(--text); }
+
+/* chequered: the brand checker pattern from bm.css, text on a solid plate so it stays readable */
+.live__flag--chequered {
+  padding: var(--space-3);
+  background-size: 40px 40px; /* sector bar uses 12px, too busy at banner size */
+}
+
+.live__flag--chequered span {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  background: var(--paper);
+  color: var(--ink);
+  border: var(--border-thin) solid var(--border);
+}
+
+.live__title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.live__meta {
+  margin-top: var(--space-2);
+}
+
+.live__sectors-card {
+  flex: 1; /* fills the side column down to the table's bottom edge */
+  display: flex;
+  flex-direction: column;
+}
+
+.live__sectors {
+  flex: 1;
+  display: grid;
+  align-content: space-evenly;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+}
+
+.live__sector {
+  display: grid;
+  grid-template-columns: 64px 56px 1fr;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.live__sector dd {
+  margin: 0;
+}
+
+.live__sector dd:last-child {
+  justify-self: end;
+}
+
+.live__weather {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: var(--border-thin) solid var(--border);
+}
+
+.live__weather dt {
+  color: var(--text-muted);
+}
+
+.live__weather dd {
+  margin: 0;
+}
+
+.live__picker {
+  margin-top: var(--space-4);
+}
+
 .live__table-wrap { grid-area: table; display: none; }
 
 /* driver cards (mobile) */
