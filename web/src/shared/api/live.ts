@@ -58,6 +58,12 @@ export interface Team {
   champPoints: number
 }
 
+export interface Pit {
+  driver_number: number
+  lap_number: number
+  pit_duration: number | null
+}
+
 export interface Radio {
   date: string
   driver_number: number
@@ -68,6 +74,7 @@ export interface Live {
   session: LiveSession
   drivers: LiveDriver[]
   teams: Team[]
+  pits: Pit[]
   radio: Radio[]
   weather: Weather | null
   raceControl: RaceControl[]
@@ -224,6 +231,8 @@ export const flagClass = (flag: string) =>
   : flag === 'BLUE' ? 'blue'
   : flag === 'CHEQUERED' ? 'chequered'
   : flag ? 'plain' : ''
+
+export const radioSrc = (url: string) => `/api/radio?url=${encodeURIComponent(url)}`
 
 export const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' })

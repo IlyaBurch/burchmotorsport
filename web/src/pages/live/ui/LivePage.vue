@@ -20,6 +20,7 @@ import {
   penaltiesFrom,
   projectStandings,
   projectTeams,
+  radioSrc,
   sessionLabel,
   trackLimitsFrom,
   type Live,
@@ -150,6 +151,24 @@ const standings = computed(() =>
 )
 const teams = computed(() => (live.value ? projectTeams(sessionName.value, live.value.drivers, live.value.teams) : []))
 const fmtDelta = (n: number) => (n > 0 ? `▲${n}` : n < 0 ? `▼${-n}` : '—')
+
+const fastestPits = computed(() =>
+  [...(live.value?.pits ?? [])]
+    .filter((p): p is typeof p & { pit_duration: number } => p.pit_duration != null)
+    .sort((a, b) => a.pit_duration - b.pit_duration)
+    .slice(0, 8),
+)
+const bestSectorHolders = computed(() =>
+  [0, 1, 2].map((i) => {
+    const best = overallBestSectors.value[i]
+    const d = live.value?.drivers.find((x) => x.bestSectors[i] === best)
+    return { i, best, d }
+  }),
+)
+const idealLap = computed(() => {
+  const s = overallBestSectors.value
+  return s.every((x) => x != null) ? s.reduce((a, b) => a! + b!, 0) : null
+})
 
 const laps = computed(() => Math.max(0, ...(live.value?.drivers.map((d) => d.positions.length) ?? [])))
 
@@ -363,6 +382,34 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         </ol>
       </BmCard>
 
+      <BmCard v-if="live">
+        <div class="bm-card__eyebrow">Лучшие сектора</div>
+        <ol class="live__list">
+          <li v-for="b in bestSectorHolders" :key="b.i" class="live__row live__row--3">
+            <span class="display-sm">S{{ b.i + 1 }}</span>
+            <DriverPlate v-if="b.d" :label="b.d.acronym" :colour="b.d.teamColour" />
+            <span v-else class="body-sm">—</span>
+            <BmChip v-if="b.best != null" variant="purple">{{ formatSector(b.best) }}</BmChip>
+          </li>
+          <li class="live__row live__row--3">
+            <span class="display-sm">Идеал</span>
+            <span class="body-sm">сумма</span>
+            <span class="timing">{{ formatLap(idealLap) }}</span>
+          </li>
+        </ol>
+      </BmCard>
+
+      <BmCard v-if="fastestPits.length">
+        <div class="bm-card__eyebrow">Пит-стопы · быстрейшие</div>
+        <ol class="live__list">
+          <li v-for="p in fastestPits" :key="p.driver_number + '-' + p.lap_number" class="live__row live__row--3">
+            <span class="timing-sm">L{{ p.lap_number }}</span>
+            <DriverPlate v-bind="plate(p.driver_number)" />
+            <span class="timing">{{ p.pit_duration.toFixed(1) }}s</span>
+          </li>
+        </ol>
+      </BmCard>
+
       <BmCard>
         <div class="bm-card__eyebrow">Лимиты трассы</div>
         <p v-if="!trackLimits.length" class="body-sm live__empty">Ни одного удалённого круга</p>
@@ -393,7 +440,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
           <span class="timing-sm">{{ formatTime(r.date) }}</span>
           <DriverPlate v-bind="plate(r.driver_number)" />
           <!-- ponytail: native player; transcript/translation hooks in here later -->
-          <audio :src="r.recording_url" controls preload="none" class="live__audio" />
+          <audio :src="radioSrc(r.recording_url)" controls preload="none" class="live__audio" />
         </li>
       </ol>
     </BmCard>
@@ -636,6 +683,11 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   grid-template-columns: 28px minmax(0, 1fr) 48px 40px 36px;
   gap: var(--space-2);
   align-items: center;
+}
+
+.live__row--3 {
+  grid-template-columns: 52px auto 1fr;
+  justify-items: start;
 }
 
 .live__gain {

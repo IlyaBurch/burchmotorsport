@@ -40,6 +40,8 @@ func TestFetchLiveMerges(t *testing.T) {
 			w.Write([]byte(`[{"team_name":"McLaren","position_start":1,"points_start":200}]`))
 		case "/team_radio":
 			w.Write([]byte(`[{"driver_number":1,"date":"a","recording_url":"u1"},{"driver_number":1,"date":"b","recording_url":"u2"}]`))
+		case "/pit":
+			w.Write([]byte(`[{"driver_number":1,"lap_number":14,"pit_duration":21.5}]`))
 		case "/location":
 			w.Write([]byte(`[{"driver_number":1,"x":10,"y":20},{"driver_number":1,"x":11,"y":21}]`))
 		default:
@@ -77,6 +79,9 @@ func TestFetchLiveMerges(t *testing.T) {
 	}
 	if len(got.Teams) != 1 || got.Teams[0].Colour != "FF8000" || got.Teams[0].Pos != 1 {
 		t.Fatalf("bad teams: %+v", got.Teams)
+	}
+	if len(got.Pits) != 1 || *got.Pits[0].Duration != 21.5 {
+		t.Fatalf("bad pits: %+v", got.Pits)
 	}
 	if got.Radio[0].URL != "u2" {
 		t.Fatalf("radio not newest first: %+v", got.Radio)
