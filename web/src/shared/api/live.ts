@@ -49,9 +49,24 @@ export interface RaceControl {
   lap_number: number
 }
 
+export interface Team {
+  name: string
+  colour: string
+  champPos: number
+  champPoints: number
+}
+
+export interface Radio {
+  date: string
+  driver_number: number
+  recording_url: string
+}
+
 export interface Live {
   session: LiveSession
   drivers: LiveDriver[]
+  teams: Team[]
+  radio: Radio[]
   weather: Weather | null
   raceControl: RaceControl[]
   updatedAt: string
@@ -143,7 +158,73 @@ export function projectStandings(sessionName: string, drivers: LiveDriver[]): Ma
   return new Map(rows.map((r) => [r.number, r]))
 }
 
-export const PENALTY_RE = /PENALTY|DELETED|TRACK LIMITS|INVESTIGATION|WARNING|REPRIMAND/
+/** same idea for constructors: points before + both cars' projected gain */
+export type TeamProjection = Projection & { name: string; colour: string }
+
+export function projectTeams(sessionName: string, drivers: LiveDriver[], teams: Team[]): TeamProjection[] {
+  const gain = new Map<string, number>()
+  for (const d of drivers) gain.set(d.team, (gain.get(d.team) ?? 0) + pointsFor(sessionName, d.position))
+  const rows = teams.map((t, i) => ({
+    number: i,
+    name: t.name,
+    colour: t.colour,
+    gain: gain.get(t.name) ?? 0,
+    points: t.champPoints + (gain.get(t.name) ?? 0),
+    pos: 0,
+    delta: 0,
+    before: t.champPos,
+  }))
+  rows.sort((a, b) => b.points - a.points)
+  rows.forEach((r, i) => {
+    r.pos = i + 1
+    r.delta = r.before ? r.before - r.pos : 0
+  })
+  return rows
+}
+
+/** "... CAR 10 (GAS) ..." → [10] */
+export const carsIn = (message: string) => [...message.matchAll(/CAR (\d+)/g)].map((m) => Number(m[1]))
+
+export interface Penalty {
+  key: string
+  car: number
+  what: string // "5 SECOND TIME PENALTY"
+  why: string // "SPEEDING IN THE PIT LANE"
+  lap: number
+}
+
+/** stewards' penalties, one per message */
+export function penaltiesFrom(rc: RaceControl[]): Penalty[] {
+  const out: Penalty[] = []
+  for (const m of rc) {
+    const hit = /FIA STEWARDS: (.+?) FOR CAR (\d+)(?: \(\w+\))?(?: - (.+))?$/.exec(m.message)
+    if (!hit || /SERVED|INVESTIGATION|REVIEWED/.test(m.message)) continue
+    out.push({ key: m.date + m.message, car: Number(hit[2]), what: hit[1]!, why: hit[3] ?? '', lap: m.lap_number })
+  }
+  return out
+}
+
+/** deleted laps for track limits, per car */
+export function trackLimitsFrom(rc: RaceControl[]): Map<number, number> {
+  const out = new Map<number, number>()
+  for (const m of rc) {
+    if (!/DELETED - TRACK LIMITS/.test(m.message)) continue
+    for (const car of carsIn(m.message)) out.set(car, (out.get(car) ?? 0) + 1)
+  }
+  return out
+}
+
+/** race control flag → chip tone class suffix */
+export const flagClass = (flag: string) =>
+  /DOUBLE YELLOW|YELLOW/.test(flag) ? 'yellow'
+  : /GREEN|CLEAR/.test(flag) ? 'green'
+  : flag === 'RED' ? 'red'
+  : flag === 'BLUE' ? 'blue'
+  : flag === 'CHEQUERED' ? 'chequered'
+  : flag ? 'plain' : ''
+
+export const formatTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' })
 
 /** SOFT → "S" */
 export const compoundLetter = (c: string) => (c === 'INTERMEDIATE' ? 'I' : c.charAt(0))

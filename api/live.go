@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -59,9 +60,24 @@ type RaceControl struct {
 	Lap      int    `json:"lap_number"`
 }
 
+type Team struct {
+	Name   string  `json:"name"`
+	Colour string  `json:"colour"`
+	Pos    int     `json:"champPos"`
+	Points float64 `json:"champPoints"`
+}
+
+type Radio struct {
+	Date   string `json:"date"`
+	Number int    `json:"driver_number"`
+	URL    string `json:"recording_url"`
+}
+
 type Live struct {
 	Session     Session       `json:"session"`
 	Drivers     []Driver      `json:"drivers"`
+	Teams       []Team        `json:"teams"`
+	Radio       []Radio       `json:"radio"` // newest first
 	Weather     *Weather      `json:"weather"`
 	RaceControl []RaceControl `json:"raceControl"` // newest first
 	UpdatedAt   string        `json:"updatedAt"`
@@ -150,7 +166,6 @@ func fetchTrack(sessionKey string) ([][2]int, error) {
 			continue
 		}
 		end := start.Add(time.Duration(*l.Duration * float64(time.Second)))
-		time.Sleep(400 * time.Millisecond)
 		var loc []struct{ X, Y int }
 		q := fmt.Sprintf("location?session_key=%s&driver_number=%d&date>=%s&date<%s",
 			sessionKey, l.Number, start.Format(time.RFC3339), end.Format(time.RFC3339))
@@ -172,7 +187,11 @@ func fetchTrack(sessionKey string) ([][2]int, error) {
 
 var openf1 = "https://api.openf1.org/v1/"
 
+// ponytail: one global 3 req/s limiter for openf1, shared by every fetch.
+var limiter = time.Tick(340 * time.Millisecond)
+
 func get(path string, v any) error {
+	<-limiter
 	resp, err := http.Get(openf1 + path)
 	if err != nil {
 		return err
@@ -232,26 +251,27 @@ func fetchLive(sessionKey string) (Live, error) {
 		Pos    *int    `json:"position_start"`
 		Pts    float64 `json:"points_start"`
 	}
+	var champTeams []struct {
+		Name string  `json:"team_name"`
+		Pos  *int    `json:"position_start"`
+		Pts  float64 `json:"points_start"`
+	}
+	var radio []Radio
 
-	// ponytail: sequential with a pause on purpose, openf1 allows 3 req/s.
-	// ~3s per refresh; parallel batches if it ever matters.
-	for _, q := range []struct {
-		path string
-		into any
-	}{
-		{"drivers?session_key=" + key, &drivers},
-		{"position?session_key=" + key, &positions},
-		{"intervals?session_key=" + key, &intervals},
-		{"laps?session_key=" + key, &laps},
-		{"stints?session_key=" + key, &stints},
-		{"weather?session_key=" + key, &weather},
-		{"race_control?session_key=" + key, &rc},
-		{"championship_drivers?session_key=" + key, &champ},
-	} {
-		time.Sleep(400 * time.Millisecond)
-		if err := get(q.path, q.into); err != nil {
-			return Live{}, err
-		}
+	// all in parallel, the limiter in get() paces them to 3 req/s
+	if err := getAll(
+		query{"drivers?session_key=" + key, &drivers},
+		query{"position?session_key=" + key, &positions},
+		query{"intervals?session_key=" + key, &intervals},
+		query{"laps?session_key=" + key, &laps},
+		query{"stints?session_key=" + key, &stints},
+		query{"weather?session_key=" + key, &weather},
+		query{"race_control?session_key=" + key, &rc},
+		query{"championship_drivers?session_key=" + key, &champ},
+		query{"championship_teams?session_key=" + key, &champTeams},
+		query{"team_radio?session_key=" + key, &radio},
+	); err != nil {
+		return Live{}, err
 	}
 
 	// car positions: last 10s for a live session, around the chequered flag otherwise
@@ -271,7 +291,6 @@ func fetchLive(sessionKey string) (Live, error) {
 		Number int `json:"driver_number"`
 		X, Y   int
 	}
-	time.Sleep(400 * time.Millisecond)
 	if err := get(fmt.Sprintf("location?session_key=%s&date>=%s&date<%s", key,
 		at.Format(time.RFC3339), at.Add(10*time.Second).Format(time.RFC3339)), &loc); err != nil {
 		return Live{}, err
@@ -354,7 +373,23 @@ func fetchLive(sessionKey string) (Live, error) {
 		return a < b
 	})
 
-	live := Live{Session: sessions[0], Drivers: out, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+	colour := map[string]string{}
+	for _, d := range out {
+		colour[d.Team] = d.Colour
+	}
+	teams := make([]Team, 0, len(champTeams))
+	for _, t := range champTeams {
+		team := Team{Name: t.Name, Colour: colour[t.Name], Points: t.Pts}
+		if t.Pos != nil {
+			team.Pos = *t.Pos
+		}
+		teams = append(teams, team)
+	}
+
+	live := Live{Session: sessions[0], Drivers: out, Teams: teams, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+	for i := len(radio) - 1; i >= 0; i-- {
+		live.Radio = append(live.Radio, radio[i])
+	}
 	if len(weather) > 0 {
 		live.Weather = &weather[len(weather)-1]
 	}
@@ -362,4 +397,28 @@ func fetchLive(sessionKey string) (Live, error) {
 		live.RaceControl = append(live.RaceControl, rc[i])
 	}
 	return live, nil
+}
+
+type query struct {
+	path string
+	into any
+}
+
+func getAll(qs ...query) error {
+	var wg sync.WaitGroup
+	errs := make([]error, len(qs))
+	for i, q := range qs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs[i] = get(q.path, q.into)
+		}()
+	}
+	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

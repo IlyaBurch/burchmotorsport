@@ -5,25 +5,29 @@ import { useIntervalFn } from '@vueuse/core'
 import { BmCard, BmChip } from '@/shared/ui'
 import {
   FIRST_SEASON,
-  PENALTY_RE,
   compoundLetter,
   fetchLive,
   fetchMeetings,
   fetchSessions,
   fetchTrack,
+  flagClass,
   formatGap,
   formatLap,
   formatSector,
+  formatTime,
   hasStarted,
-  inkOn,
   isFinished,
+  penaltiesFrom,
   projectStandings,
+  projectTeams,
   sessionLabel,
+  trackLimitsFrom,
   type Live,
   type Meeting,
   type Session,
 } from '@/shared/api/live'
 import TrackMap from './TrackMap.vue'
+import DriverPlate from './DriverPlate.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -129,13 +133,26 @@ const sectorTone = (d: Live['drivers'][number], i: number): Tone => {
   return 'default'
 }
 
+const byNumber = computed(() => new Map(live.value?.drivers.map((d) => [d.number, d]) ?? []))
+const plate = (car: number) => ({
+  label: byNumber.value.get(car)?.acronym ?? String(car),
+  colour: byNumber.value.get(car)?.teamColour,
+})
+
+const sessionName = computed(() => live.value?.session.session_name ?? '')
+const scoring = computed(() => ['Race', 'Sprint'].includes(sessionName.value))
 const standings = computed(() =>
-  live.value ? projectStandings(live.value.session.session_name, live.value.drivers) : new Map(),
+  live.value
+    ? [...projectStandings(sessionName.value, live.value.drivers).values()].sort((a, b) => a.pos - b.pos)
+    : [],
 )
-const scoring = computed(() => ['Race', 'Sprint'].includes(live.value?.session.session_name ?? ''))
+const teams = computed(() => (live.value ? projectTeams(sessionName.value, live.value.drivers, live.value.teams) : []))
 const fmtDelta = (n: number) => (n > 0 ? `▲${n}` : n < 0 ? `▼${-n}` : '')
 
-const penalties = computed(() => live.value?.raceControl.filter((m) => PENALTY_RE.test(m.message)) ?? [])
+const penalties = computed(() => penaltiesFrom(live.value?.raceControl ?? []))
+const trackLimits = computed(() =>
+  [...trackLimitsFrom(live.value?.raceControl ?? [])].sort((a, b) => b[1] - a[1]),
+)
 
 const trackFlag = computed(() => {
   const f = live.value?.raceControl.find((m) => m.category === 'Flag' || m.category === 'SafetyCar')
@@ -221,39 +238,6 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       </div>
     </BmCard>
 
-    <aside class="live__side">
-      <TrackMap v-if="outline.length && live" :outline="outline" :drivers="live.drivers" />
-      <div v-else class="live__skeleton live__skeleton--map" aria-busy="true" aria-label="Загрузка карты" />
-
-      <dl v-if="live?.weather" class="live__weather">
-        <div><dt class="display-sm">Воздух</dt><dd class="timing">{{ live.weather.air_temperature }}°</dd></div>
-        <div><dt class="display-sm">Трасса</dt><dd class="timing">{{ live.weather.track_temperature }}°</dd></div>
-        <div><dt class="display-sm">Влажн.</dt><dd class="timing">{{ live.weather.humidity }}%</dd></div>
-        <div><dt class="display-sm">Ветер</dt><dd class="timing">{{ live.weather.wind_speed }} м/с</dd></div>
-        <div><dt class="display-sm">Дождь</dt><dd class="timing">{{ live.weather.rainfall ? 'Да' : 'Нет' }}</dd></div>
-      </dl>
-
-      <BmCard v-if="penalties.length">
-        <div class="bm-card__eyebrow">Лимиты трассы и штрафы</div>
-        <ol class="live__rc">
-          <li v-for="m in penalties" :key="m.date + m.message">
-            <span class="timing-sm">L{{ m.lap_number || '—' }}</span>
-            <span class="body-sm">{{ m.message }}</span>
-          </li>
-        </ol>
-      </BmCard>
-
-      <BmCard v-if="live?.raceControl.length" class="live__rc-card">
-        <div class="bm-card__eyebrow">Race control</div>
-        <ol class="live__rc">
-          <li v-for="m in live.raceControl.slice(0, 8)" :key="m.date + m.message">
-            <span class="timing-sm">L{{ m.lap_number || '—' }}</span>
-            <span class="body-sm">{{ m.message }}</span>
-          </li>
-        </ol>
-      </BmCard>
-    </aside>
-
     <div class="live__table-wrap">
       <table class="live__table">
         <thead>
@@ -270,18 +254,13 @@ onScopeDispose(() => clearTimeout(bannerTimer))
             <th class="live__num">S3</th>
             <th class="live__num">Лучший</th>
             <th class="live__num">Трап</th>
-            <th v-if="scoring" class="live__num">+Очки</th>
-            <th class="live__num">Чемп.</th>
           </tr>
         </thead>
         <tbody v-if="live">
           <tr v-for="d in live.drivers" :key="d.number">
             <td class="display-sm live__sticky live__sticky--pos">{{ d.position || '—' }}</td>
             <td class="live__sticky live__sticky--drv">
-              <span
-                class="body-strong live__team"
-                :style="d.teamColour ? { background: '#' + d.teamColour, color: inkOn(d.teamColour) } : undefined"
-              >{{ d.acronym }}</span>
+              <DriverPlate :label="d.acronym" :colour="d.teamColour" />
               <span class="body-sm live__name">{{ d.name }}</span>
             </td>
             <td class="timing">
@@ -305,33 +284,136 @@ onScopeDispose(() => clearTimeout(bannerTimer))
               <template v-else>{{ formatLap(d.bestLap) }}</template>
             </td>
             <td class="timing live__num">{{ d.speedTrap || '—' }}</td>
-            <td v-if="scoring" class="timing live__num">{{ standings.get(d.number)?.gain || '—' }}</td>
-            <td class="timing live__num">
-              {{ standings.get(d.number)?.pos }}
-              <span class="timing-sm">{{ standings.get(d.number)?.points }}</span>
-              <BmChip
-                v-if="standings.get(d.number)?.delta"
-                :variant="standings.get(d.number)!.delta > 0 ? 'green' : 'yellow'"
-              >{{ fmtDelta(standings.get(d.number)!.delta) }}</BmChip>
-            </td>
           </tr>
         </tbody>
         <tbody v-else aria-busy="true" aria-label="Загрузка">
           <tr v-for="i in 20" :key="i">
-            <td colspan="14"><div class="live__skeleton" /></td>
+            <td colspan="12"><div class="live__skeleton" /></td>
           </tr>
         </tbody>
       </table>
     </div>
+
+    <aside class="live__side">
+      <TrackMap v-if="outline.length && live" :outline="outline" :drivers="live.drivers" />
+      <div v-else class="live__skeleton live__skeleton--map" aria-busy="true" aria-label="Загрузка карты" />
+
+      <dl v-if="live?.weather" class="live__weather">
+        <div><dt class="display-sm">Воздух</dt><dd class="timing">{{ live.weather.air_temperature }}°</dd></div>
+        <div><dt class="display-sm">Трасса</dt><dd class="timing">{{ live.weather.track_temperature }}°</dd></div>
+        <div><dt class="display-sm">Влажн.</dt><dd class="timing">{{ live.weather.humidity }}%</dd></div>
+        <div><dt class="display-sm">Ветер</dt><dd class="timing">{{ live.weather.wind_speed }} м/с</dd></div>
+        <div><dt class="display-sm">Дождь</dt><dd class="timing">{{ live.weather.rainfall ? 'Да' : 'Нет' }}</dd></div>
+      </dl>
+    </aside>
+
+    <BmCard v-if="standings.length" class="live__drivers">
+      <div class="bm-card__eyebrow">Личный зачёт{{ scoring ? ' · прогноз' : '' }}</div>
+      <ol class="live__list">
+        <li v-for="s in standings" :key="s.number" class="live__row">
+          <span class="display-sm">{{ s.pos }}</span>
+          <DriverPlate :label="byNumber.get(s.number)?.name ?? ''" :colour="plate(s.number).colour" wide />
+          <span class="timing live__num">{{ s.points }}</span>
+          <span class="timing-sm live__num live__gain">{{ s.gain ? `+${s.gain}` : '' }}</span>
+          <span class="timing-sm live__num">{{ fmtDelta(s.delta) }}</span>
+        </li>
+      </ol>
+    </BmCard>
+
+    <BmCard v-if="teams.length" class="live__teams">
+      <div class="bm-card__eyebrow">Кубок конструкторов{{ scoring ? ' · прогноз' : '' }}</div>
+      <ol class="live__list">
+        <li v-for="t in teams" :key="t.name" class="live__row">
+          <span class="display-sm">{{ t.pos }}</span>
+          <DriverPlate :label="t.name" :colour="t.colour" wide />
+          <span class="timing live__num">{{ t.points }}</span>
+          <span class="timing-sm live__num live__gain">{{ t.gain ? `+${t.gain}` : '' }}</span>
+          <span class="timing-sm live__num">{{ fmtDelta(t.delta) }}</span>
+        </li>
+      </ol>
+    </BmCard>
+
+    <div class="live__pen">
+      <BmCard>
+        <div class="bm-card__eyebrow">Штрафы</div>
+        <p v-if="!penalties.length" class="body-sm live__empty">Пока чисто</p>
+        <ol v-else class="live__list">
+          <li v-for="p in penalties" :key="p.key" class="live__penalty">
+            <DriverPlate v-bind="plate(p.car)" />
+            <span>
+              <span class="body-strong">{{ p.what }}</span>
+              <span v-if="p.why" class="body-sm"> · {{ p.why }}</span>
+              <span class="timing-sm"> · L{{ p.lap }}</span>
+            </span>
+          </li>
+        </ol>
+      </BmCard>
+
+      <BmCard>
+        <div class="bm-card__eyebrow">Лимиты трассы</div>
+        <p v-if="!trackLimits.length" class="body-sm live__empty">Ни одного удалённого круга</p>
+        <div v-else class="live__limits">
+          <span v-for="[car, n] in trackLimits" :key="car" class="live__limit">
+            <DriverPlate v-bind="plate(car)" />
+            <span class="timing">{{ n }}</span>
+          </span>
+        </div>
+      </BmCard>
+    </div>
+
+    <BmCard v-if="live?.raceControl.length" class="live__rc">
+      <div class="bm-card__eyebrow">Race control</div>
+      <ol class="live__list live__feed">
+        <li v-for="m in live.raceControl" :key="m.date + m.message" class="live__msg">
+          <span class="timing-sm">L{{ m.lap_number || '—' }}</span>
+          <i v-if="flagClass(m.flag)" class="live__sq" :class="`live__sq--${flagClass(m.flag)}`" aria-hidden="true" />
+          <span class="body-sm">{{ m.message }}</span>
+        </li>
+      </ol>
+    </BmCard>
+
+    <BmCard v-if="live?.radio.length" class="live__radio">
+      <div class="bm-card__eyebrow">Радио</div>
+      <ol class="live__list live__feed">
+        <li v-for="r in live.radio" :key="r.recording_url" class="live__radio-row">
+          <span class="timing-sm">{{ formatTime(r.date) }}</span>
+          <DriverPlate v-bind="plate(r.driver_number)" />
+          <!-- ponytail: native player; transcript/translation hooks in here later -->
+          <audio :src="r.recording_url" controls preload="none" class="live__audio" />
+        </li>
+      </ol>
+    </BmCard>
   </section>
 </template>
 
 <style scoped>
-/* mobile first: head, map+info, table stacked; desktop puts the side column next to the table */
+/* mobile first, single column; desktop lays the blocks out in three columns */
 .live {
   display: grid;
   gap: var(--space-4);
-  grid-template-areas: 'flag' 'head' 'table' 'side';
+  grid-template-areas: 'flag' 'head' 'table' 'side' 'drivers' 'teams' 'pen' 'radio' 'rc';
+}
+
+.live__head { grid-area: head; }
+.live__table-wrap { grid-area: table; }
+.live__side { grid-area: side; display: grid; gap: var(--space-4); align-content: start; }
+.live__drivers { grid-area: drivers; }
+.live__teams { grid-area: teams; }
+.live__pen { grid-area: pen; display: grid; gap: var(--space-4); align-content: start; }
+.live__rc { grid-area: rc; }
+.live__radio { grid-area: radio; }
+
+@media (min-width: 1024px) {
+  .live {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 360px;
+    grid-template-areas:
+      'flag flag flag'
+      'head head head'
+      'table table side'
+      'drivers teams pen'
+      'rc rc radio';
+    gap: var(--space-6);
+  }
 }
 
 .live__flag {
@@ -361,18 +443,6 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   background: var(--paper);
   color: var(--ink);
   border: var(--border-thin) solid var(--border);
-}
-
-.live__head { grid-area: head; }
-.live__side { grid-area: side; display: grid; gap: var(--space-4); align-content: start; }
-.live__table-wrap { grid-area: table; }
-
-@media (min-width: 1024px) {
-  .live {
-    grid-template-columns: minmax(0, 1fr) 360px;
-    grid-template-areas: 'flag flag' 'head head' 'table side';
-    gap: var(--space-6);
-  }
 }
 
 .live__title-row {
@@ -486,15 +556,6 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   border-right: 1px solid var(--border);
 }
 
-/* team colour comes from openf1 as data, not from a token: inline style, ink picked by luminance */
-.live__team {
-  display: inline-block;
-  min-width: 48px;
-  padding: 0 var(--space-2);
-  border: var(--border-thin) solid var(--border);
-  text-align: center;
-}
-
 .live__num {
   text-align: right;
 }
@@ -534,20 +595,92 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   }
 }
 
-.live__rc {
+/* lists inside cards */
+.live__list {
   list-style: none;
   margin: var(--space-3) 0 0;
   padding: 0;
   display: grid;
   gap: var(--space-2);
-  max-height: 320px;
+}
+
+.live__feed {
+  max-height: 360px;
   overflow-y: auto;
 }
 
-.live__rc li {
+.live__empty {
+  margin: var(--space-3) 0 0;
+}
+
+.live__row {
   display: grid;
-  grid-template-columns: 44px 1fr;
+  grid-template-columns: 28px minmax(0, 1fr) 48px 40px 36px;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.live__gain {
+  color: var(--text-muted);
+}
+
+.live__penalty {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.live__limits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.live__limit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-2);
+  border: var(--border-thin) solid var(--border);
+}
+
+.live__msg {
+  display: grid;
+  grid-template-columns: 44px auto 1fr;
   gap: var(--space-2);
   align-items: baseline;
+}
+
+.live__sq {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border);
+  align-self: center;
+}
+
+.live__sq--yellow { background: var(--timing-yellow); }
+.live__sq--green { background: var(--timing-green); }
+.live__sq--red { background: var(--flag-red); }
+.live__sq--blue { background: var(--accent); }
+.live__sq--plain { background: var(--paper); }
+.live__sq--chequered {
+  background: conic-gradient(var(--ink) 0.25turn, var(--paper) 0.25turn 0.5turn, var(--ink) 0.5turn 0.75turn, var(--paper) 0.75turn);
+  background-size: 7px 7px;
+}
+
+.live__radio-row {
+  display: grid;
+  grid-template-columns: 44px auto 1fr;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.live__audio {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
 }
 </style>

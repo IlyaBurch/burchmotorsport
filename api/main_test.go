@@ -20,7 +20,7 @@ func TestFetchLiveMerges(t *testing.T) {
 		case "/sessions":
 			w.Write([]byte(`[{"session_key":1,"session_name":"Race"}]`))
 		case "/drivers":
-			w.Write([]byte(`[{"driver_number":1,"name_acronym":"NOR"},{"driver_number":3,"name_acronym":"VER"}]`))
+			w.Write([]byte(`[{"driver_number":1,"name_acronym":"NOR","team_name":"McLaren","team_colour":"FF8000"},{"driver_number":3,"name_acronym":"VER"}]`))
 		case "/position":
 			w.Write([]byte(`[{"driver_number":1,"position":1},{"driver_number":3,"position":2},{"driver_number":3,"position":1},{"driver_number":1,"position":2}]`))
 		case "/intervals":
@@ -35,6 +35,10 @@ func TestFetchLiveMerges(t *testing.T) {
 			w.Write([]byte(`[{"message":"old"},{"message":"new"}]`))
 		case "/championship_drivers":
 			w.Write([]byte(`[{"driver_number":1,"position_start":2,"points_start":100.5}]`))
+		case "/championship_teams":
+			w.Write([]byte(`[{"team_name":"McLaren","position_start":1,"points_start":200}]`))
+		case "/team_radio":
+			w.Write([]byte(`[{"driver_number":1,"date":"a","recording_url":"u1"},{"driver_number":1,"date":"b","recording_url":"u2"}]`))
 		case "/location":
 			w.Write([]byte(`[{"driver_number":1,"x":10,"y":20},{"driver_number":1,"x":11,"y":21}]`))
 		default:
@@ -63,6 +67,12 @@ func TestFetchLiveMerges(t *testing.T) {
 	}
 	if nor.ChampPos != 2 || nor.ChampPts != 100.5 {
 		t.Fatalf("bad championship: %+v", nor)
+	}
+	if len(got.Teams) != 1 || got.Teams[0].Colour != "FF8000" || got.Teams[0].Pos != 1 {
+		t.Fatalf("bad teams: %+v", got.Teams)
+	}
+	if got.Radio[0].URL != "u2" {
+		t.Fatalf("radio not newest first: %+v", got.Radio)
 	}
 	if nor.X != 11 || nor.Y != 21 {
 		t.Fatalf("bad location: %+v", nor)
