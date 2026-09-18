@@ -1,11 +1,22 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { BmHeader } from '@/components/ui'
+import { useTheme } from '@/composables/useTheme'
+import { BmButton } from '@/components/ui'
+
+const { toggle } = useTheme()
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
-</template>
+  <BmHeader>
+    <BmButton variant="ghost" @click="toggle">
+      Тема
+    </BmButton>
+    <RouterLink class="bm-btn bm-btn--ghost" to="/design-system">
+      UI Kit
+    </RouterLink>
+  </BmHeader>
 
-<style scoped></style>
+  <main class="bm-container" style="padding-block: var(--space-8)">
+    <RouterView />
+  </main>
+</template>
