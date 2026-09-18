@@ -17,6 +17,7 @@ func handler() http.Handler {
 	mux.HandleFunc("GET /api/sessions", sessionsHandler)
 	mux.HandleFunc("GET /api/track", trackHandler)
 	mux.HandleFunc("GET /api/radio", radioHandler)
+	mux.HandleFunc("GET /api/next", nextHandler)
 	return mux
 }
 
