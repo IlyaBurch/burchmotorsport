@@ -631,11 +631,6 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live__cards { grid-area: cards; }
 .live__table-wrap { grid-area: table; display: none; }
 
-@media (min-width: 768px) {
-  .live__cards { display: none; }
-  .live__table-wrap { display: block; }
-}
-
 /* driver cards (mobile) */
 .live__cards {
   list-style: none;
@@ -643,6 +638,11 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   padding: 0;
   display: grid;
   gap: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .live__cards { display: none; }
+  .live__table-wrap { display: block; }
 }
 
 .live__card {
