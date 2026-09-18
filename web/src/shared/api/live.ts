@@ -20,11 +20,35 @@ export interface LiveDriver {
   lastLap: number | null
   bestLap: number | null
   lap: number
+  sectors: [number | null, number | null, number | null]
+  bestSectors: [number | null, number | null, number | null]
+  speedTrap: number
+  compound: string
+  tyreAge: number
+  pits: number
+}
+
+export interface Weather {
+  air_temperature: number
+  track_temperature: number
+  humidity: number
+  rainfall: number
+  wind_speed: number
+}
+
+export interface RaceControl {
+  date: string
+  category: string
+  flag: string
+  message: string
+  lap_number: number
 }
 
 export interface Live {
   session: LiveSession
   drivers: LiveDriver[]
+  weather: Weather | null
+  raceControl: RaceControl[]
   updatedAt: string
 }
 
@@ -54,6 +78,15 @@ export const fetchLive = (sessionKey: string | number = 'latest') =>
 export const fetchMeetings = (year: number) => getJSON<Meeting[]>(`/api/meetings?year=${year}`)
 export const fetchSessions = (meetingKey: number) =>
   getJSON<Session[]>(`/api/sessions?meeting_key=${meetingKey}`)
+
+/** 30.123 → "30.123" */
+export const formatSector = (s: number | null) => (s == null ? '—' : s.toFixed(3))
+
+/** SOFT → "S" */
+export const compoundLetter = (c: string) => (c === 'INTERMEDIATE' ? 'I' : c.charAt(0))
+
+/** date_start already passed */
+export const hasStarted = (x: { date_start: string }) => Date.parse(x.date_start) <= Date.now()
 
 /** session is over (with an hour of slack) → no need to poll */
 export const isFinished = (s: LiveSession) =>

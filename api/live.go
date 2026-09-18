@@ -20,22 +20,46 @@ type Session struct {
 }
 
 type Driver struct {
-	Position int      `json:"position"`
-	Number   int      `json:"number"`
-	Acronym  string   `json:"acronym"`
-	Name     string   `json:"name"`
-	Team     string   `json:"team"`
-	Gap      any      `json:"gap"`      // seconds (float) or text like "+1 LAP"
-	Interval any      `json:"interval"` // same
-	LastLap  *float64 `json:"lastLap"`
-	BestLap  *float64 `json:"bestLap"`
-	Lap      int      `json:"lap"`
+	Position int         `json:"position"`
+	Number   int         `json:"number"`
+	Acronym  string      `json:"acronym"`
+	Name     string      `json:"name"`
+	Team     string      `json:"team"`
+	Gap      any         `json:"gap"`      // seconds (float) or text like "+1 LAP"
+	Interval any         `json:"interval"` // same
+	LastLap  *float64    `json:"lastLap"`
+	BestLap  *float64    `json:"bestLap"`
+	Lap      int         `json:"lap"`
+	Sectors  [3]*float64 `json:"sectors"`     // last lap
+	BestSect [3]*float64 `json:"bestSectors"` // personal best per sector
+	Speed    int         `json:"speedTrap"`   // km/h on last lap
+	Compound string      `json:"compound"`    // SOFT/MEDIUM/HARD/INTERMEDIATE/WET
+	TyreAge  int         `json:"tyreAge"`     // laps on current set
+	Pits     int         `json:"pits"`
+}
+
+type Weather struct {
+	Air      float64 `json:"air_temperature"`
+	Track    float64 `json:"track_temperature"`
+	Humidity float64 `json:"humidity"`
+	Rain     float64 `json:"rainfall"`
+	Wind     float64 `json:"wind_speed"`
+}
+
+type RaceControl struct {
+	Date     string `json:"date"`
+	Category string `json:"category"`
+	Flag     string `json:"flag"`
+	Message  string `json:"message"`
+	Lap      int    `json:"lap_number"`
 }
 
 type Live struct {
-	Session   Session  `json:"session"`
-	Drivers   []Driver `json:"drivers"`
-	UpdatedAt string   `json:"updatedAt"`
+	Session     Session       `json:"session"`
+	Drivers     []Driver      `json:"drivers"`
+	Weather     *Weather      `json:"weather"`
+	RaceControl []RaceControl `json:"raceControl"` // newest first, last 20
+	UpdatedAt   string        `json:"updatedAt"`
 }
 
 const forever = 100 * 365 * 24 * time.Hour
@@ -131,8 +155,22 @@ func fetchLive(sessionKey string) (Live, error) {
 		Number   int      `json:"driver_number"`
 		Lap      int      `json:"lap_number"`
 		Duration *float64 `json:"lap_duration"`
+		S1       *float64 `json:"duration_sector_1"`
+		S2       *float64 `json:"duration_sector_2"`
+		S3       *float64 `json:"duration_sector_3"`
+		Speed    int      `json:"st_speed"`
 	}
-	// sequential with a pause on purpose: openf1 allows 3 req/s
+	var stints []struct {
+		Number   int    `json:"driver_number"`
+		LapStart int    `json:"lap_start"`
+		Compound string `json:"compound"`
+		Age      int    `json:"tyre_age_at_start"`
+	}
+	var weather []Weather
+	var rc []RaceControl
+
+	// ponytail: sequential with a pause on purpose, openf1 allows 3 req/s.
+	// ~3s per refresh; parallel batches if it ever matters.
 	for _, q := range []struct {
 		path string
 		into any
@@ -141,6 +179,9 @@ func fetchLive(sessionKey string) (Live, error) {
 		{"position?session_key=" + key, &positions},
 		{"intervals?session_key=" + key, &intervals},
 		{"laps?session_key=" + key, &laps},
+		{"stints?session_key=" + key, &stints},
+		{"weather?session_key=" + key, &weather},
+		{"race_control?session_key=" + key, &rc},
 	} {
 		time.Sleep(400 * time.Millisecond)
 		if err := get(q.path, q.into); err != nil {
@@ -173,11 +214,32 @@ func fetchLive(sessionKey string) (Live, error) {
 			continue
 		}
 		d.Lap = l.Lap
+		d.Sectors = [3]*float64{l.S1, l.S2, l.S3}
+		if l.Speed > 0 {
+			d.Speed = l.Speed
+		}
+		for i, s := range d.Sectors {
+			if s != nil && (d.BestSect[i] == nil || *s < *d.BestSect[i]) {
+				d.BestSect[i] = s
+			}
+		}
 		if l.Duration != nil {
 			d.LastLap = l.Duration
 			if d.BestLap == nil || *l.Duration < *d.BestLap {
 				d.BestLap = l.Duration
 			}
+		}
+	}
+	for _, s := range stints {
+		if d := byNum[s.Number]; d != nil {
+			d.Pits++ // counts stints; corrected below
+			d.Compound = s.Compound
+			d.TyreAge = s.Age + d.Lap - s.LapStart + 1
+		}
+	}
+	for i := range out {
+		if out[i].Pits > 0 {
+			out[i].Pits--
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -190,5 +252,13 @@ func fetchLive(sessionKey string) (Live, error) {
 		}
 		return a < b
 	})
-	return Live{Session: sessions[0], Drivers: out, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}, nil
+
+	live := Live{Session: sessions[0], Drivers: out, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+	if len(weather) > 0 {
+		live.Weather = &weather[len(weather)-1]
+	}
+	for i := len(rc) - 1; i >= 0 && len(live.RaceControl) < 20; i-- {
+		live.RaceControl = append(live.RaceControl, rc[i])
+	}
+	return live, nil
 }

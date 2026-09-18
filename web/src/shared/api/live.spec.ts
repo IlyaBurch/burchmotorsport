@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatGap, formatLap } from './live'
+import { compoundLetter, formatGap, formatLap, formatSector } from './live'
 
 describe('live formatters', () => {
   it('formats laps as m:ss.mmm', () => {
@@ -12,5 +12,10 @@ describe('live formatters', () => {
     expect(formatGap(4.351)).toBe('+4.351')
     expect(formatGap('+1 LAP')).toBe('+1 LAP')
     expect(formatGap(null)).toBe('—')
+  })
+  it('formats sectors and compounds', () => {
+    expect(formatSector(30.1)).toBe('30.100')
+    expect(compoundLetter('INTERMEDIATE')).toBe('I')
+    expect(compoundLetter('SOFT')).toBe('S')
   })
 })

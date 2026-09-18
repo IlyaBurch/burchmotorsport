@@ -26,7 +26,15 @@ func TestFetchLiveMerges(t *testing.T) {
 		case "/intervals":
 			w.Write([]byte(`[{"driver_number":1,"gap_to_leader":1.5,"interval":1.5}]`))
 		case "/laps":
-			w.Write([]byte(`[{"driver_number":1,"lap_number":1,"lap_duration":90.5},{"driver_number":1,"lap_number":2,"lap_duration":91.0}]`))
+			w.Write([]byte(`[{"driver_number":1,"lap_number":1,"lap_duration":90.5,"duration_sector_1":30.0},{"driver_number":1,"lap_number":2,"lap_duration":91.0,"duration_sector_1":30.5}]`))
+		case "/stints":
+			w.Write([]byte(`[{"driver_number":1,"lap_start":1,"compound":"SOFT","tyre_age_at_start":2},{"driver_number":1,"lap_start":2,"compound":"HARD","tyre_age_at_start":0}]`))
+		case "/weather":
+			w.Write([]byte(`[{"air_temperature":20},{"air_temperature":25}]`))
+		case "/race_control":
+			w.Write([]byte(`[{"message":"old"},{"message":"new"}]`))
+		default:
+			w.Write([]byte(`[]`))
 		}
 	}))
 	defer srv.Close()
@@ -42,5 +50,14 @@ func TestFetchLiveMerges(t *testing.T) {
 	nor := got.Drivers[1]
 	if nor.Lap != 2 || *nor.LastLap != 91.0 || *nor.BestLap != 90.5 || nor.Gap != 1.5 {
 		t.Fatalf("bad merge: %+v", nor)
+	}
+	if *nor.Sectors[0] != 30.5 || *nor.BestSect[0] != 30.0 {
+		t.Fatalf("bad sectors: %+v", nor)
+	}
+	if nor.Compound != "HARD" || nor.TyreAge != 1 || nor.Pits != 1 {
+		t.Fatalf("bad stint: %+v", nor)
+	}
+	if got.Weather.Air != 25 || got.RaceControl[0].Message != "new" {
+		t.Fatalf("bad weather/rc: %+v %+v", got.Weather, got.RaceControl)
 	}
 }
