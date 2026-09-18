@@ -28,7 +28,7 @@ import { BmSectorBar, BmCard, BmButton } from '@/shared/ui'
       <p class="body" style="margin-top: var(--space-3)">
         Позиции, скорости, отрывы — в реальном времени.
       </p>
-      <BmButton style="margin-top: var(--space-4)">Скоро</BmButton>
+      <RouterLink class="bm-btn bm-btn--primary" style="margin-top: var(--space-4)" to="/live">Смотреть</RouterLink>
     </BmCard>
 
     <BmCard>

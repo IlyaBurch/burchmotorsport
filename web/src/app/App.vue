@@ -11,6 +11,9 @@ const { toggle } = useTheme()
     <BmButton variant="ghost" @click="toggle">
       Тема
     </BmButton>
+    <RouterLink class="bm-btn bm-btn--ghost" to="/live">
+      Live
+    </RouterLink>
     <RouterLink class="bm-btn bm-btn--ghost" to="/design-system">
       UI Kit
     </RouterLink>

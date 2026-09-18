@@ -12,6 +12,7 @@ func handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+	mux.HandleFunc("GET /api/live", liveHandler)
 	return mux
 }
 
