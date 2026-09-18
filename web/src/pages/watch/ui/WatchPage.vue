@@ -9,6 +9,7 @@ import { resolveTitle, sessionLabel } from '@/shared/api/live'
 import { useLiveSession } from '@/entities/session'
 import { RutubePlayer } from '@/features/rutube-player'
 import { useTheater, type PanelMode } from '@/features/theater-mode'
+import { useTheme } from '@/features/theme-toggle'
 import { LivePanel } from '@/widgets/live-panel'
 import { SessionPicker } from '@/features/session-picker'
 
@@ -20,13 +21,27 @@ const router = useRouter()
 const phone = useMediaQuery('(max-width: 767px)')
 
 // --- video from the url ------------------------------------------------------
+const { theme } = useTheme()
+// Night Lords answer bad links the way the VIII Legion answers anything
+const words = computed(() =>
+  theme.value === 'night-lords'
+    ? {
+        badLink: 'Это не ссылка на RuTube, смертный. Ещё одна такая хуйня, и за тобой придут ночью. Валидную ссылку. Быстро.',
+        notF1: 'Это не Формула 1, отродье. Восьмой легион не смотрит котиков. Ссылку на гонку, или Керз сдерёт с тебя кожу.',
+      }
+    : {
+        badLink: 'Это не ссылка на RuTube',
+        notF1: 'Похоже, это не Формула 1. Нужна ссылка на видео или трансляцию F1',
+      },
+)
+
 const videoId = computed(() => parseRutubeId(String(route.query.v ?? '')))
 const link = ref('')
 const linkError = ref('')
 function open() {
   const id = parseRutubeId(link.value)
   if (!id) {
-    linkError.value = 'Это не ссылка на RuTube'
+    linkError.value = words.value.badLink
     return
   }
   linkError.value = ''
@@ -45,7 +60,7 @@ async function onTitle(title: string) {
     const r = await resolveTitle(title)
     if (!r.f1 && !r.session) {
       // not Formula 1: back to the form with the reason
-      linkError.value = 'Похоже, это не Формула 1. Нужна ссылка на видео или трансляцию F1'
+      linkError.value = words.value.notF1
       link.value = ''
       router.replace({ query: { ...route.query, v: undefined } })
       return

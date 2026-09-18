@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import WatchPage from '../ui/WatchPage.vue'
+import { useTheme } from '@/features/theme-toggle'
 
 const id = '0123456789abcdef0123456789abcdef'
 
@@ -66,5 +67,14 @@ describe('WatchPage', () => {
     expect(router.currentRoute.value.query.v).toBeUndefined()
     expect(w.find('iframe').exists()).toBe(false)
     expect(w.text()).toContain('не Формула 1')
+  })
+
+  it('threatens in the Night Lords theme', async () => {
+    useTheme().set('night-lords')
+    const { w } = await mountAt('/watch')
+    await w.find('input').setValue('https://vk.com/video')
+    await w.find('form').trigger('submit')
+    expect(w.text()).toContain('смертный')
+    useTheme().set('dark')
   })
 })
