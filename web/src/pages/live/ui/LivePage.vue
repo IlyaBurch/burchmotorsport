@@ -323,20 +323,23 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         <div><dt class="display-sm">Дождь</dt><dd class="timing">{{ live.weather.rainfall ? 'Да' : 'Нет' }}</dd></div>
       </dl>
 
-      <BmCard v-if="live">
+      <BmCard v-if="live" class="live__sectors-card">
         <div class="bm-card__eyebrow">Лучшие сектора</div>
-        <div class="live__sectors">
-          <span v-for="b in bestSectorHolders" :key="b.i" class="live__sector">
-            <span class="display-sm">S{{ b.i + 1 }}</span>
-            <DriverPlate v-if="b.d" :label="b.d.acronym" :colour="b.d.teamColour" />
-            <BmChip v-if="b.best != null" variant="purple">{{ formatSector(b.best) }}</BmChip>
-            <span v-else class="body-sm">—</span>
-          </span>
-          <span class="live__sector">
-            <span class="display-sm">Лучший</span>
-            <span class="timing">{{ formatLap(idealLap) }}</span>
-          </span>
-        </div>
+        <dl class="live__sectors">
+          <div v-for="b in bestSectorHolders" :key="b.i" class="live__sector">
+            <dt class="display-sm">S{{ b.i + 1 }}</dt>
+            <dd><DriverPlate v-if="b.d" :label="b.d.acronym" :colour="b.d.teamColour" /></dd>
+            <dd>
+              <BmChip v-if="b.best != null" variant="purple">{{ formatSector(b.best) }}</BmChip>
+              <span v-else class="body-sm">—</span>
+            </dd>
+          </div>
+          <div class="live__sector">
+            <dt class="display-sm">Лучший</dt>
+            <dd class="body-sm">сумма секторов</dd>
+            <dd class="timing">{{ formatLap(idealLap) }}</dd>
+          </div>
+        </dl>
       </BmCard>
 
     </aside>
@@ -408,16 +411,26 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 
     <BmCard v-if="live?.raceControl.length" class="live__rc">
       <div class="bm-card__eyebrow">Race control</div>
-      <ol class="live__ticker">
-        <li v-for="m in live.raceControl" :key="m.date + m.message" class="live__msg">
-          <span class="live__msg-head">
-            <span class="timing-sm">L{{ m.lap_number || '—' }}</span>
-            <i v-if="flagClass(m.flag)" class="live__sq" :class="`live__sq--${flagClass(m.flag)}`" aria-hidden="true" />
-            <span class="timing-sm">{{ formatTime(m.date) }}</span>
-          </span>
-          <span class="body-sm">{{ m.message }}</span>
-        </li>
-      </ol>
+      <div class="live__rc-scroll">
+        <table class="live__rc-table">
+          <thead>
+            <tr class="display-sm">
+              <th>Круг</th>
+              <th>Флаг</th>
+              <th>Время</th>
+              <th>Сообщение</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="m in live.raceControl" :key="m.date + m.message">
+              <td class="timing-sm">L{{ m.lap_number || '—' }}</td>
+              <td><i v-if="flagClass(m.flag)" class="live__sq" :class="`live__sq--${flagClass(m.flag)}`" aria-hidden="true" /></td>
+              <td class="timing-sm">{{ formatTime(m.date) }}</td>
+              <td class="body-sm live__rc-msg">{{ m.message }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </BmCard>
 
     <BmCard v-if="live?.radio.length" class="live__radio">
@@ -444,7 +457,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 
 .live__head { grid-area: head; }
 .live__table-wrap { grid-area: table; }
-.live__side { grid-area: side; display: grid; gap: var(--space-4); align-content: start; }
+.live__side { grid-area: side; display: flex; flex-direction: column; gap: var(--space-4); }
 .live__chart { grid-area: chart; }
 .live__tyres { grid-area: tyres; }
 .live__drivers { grid-area: drivers; }
@@ -703,32 +716,40 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   border: var(--border-thin) solid var(--border);
 }
 
-/* horizontal ticker, newest on the left */
-.live__ticker {
-  list-style: none;
-  margin: var(--space-3) 0 0;
-  padding: 0 0 var(--space-2);
-  display: flex;
-  gap: var(--space-3);
-  overflow-x: auto;
-}
-
-.live__msg {
-  max-width: none;
-  flex: 0 0 260px;
-  display: grid;
-  gap: var(--space-2);
-  align-content: start;
-  padding: var(--space-3);
+/* race control: wide table, newest first, scrolls inside the card */
+.live__rc-scroll {
+  margin-top: var(--space-3);
+  max-height: 320px;
+  overflow: auto;
   background: var(--surface-sunken);
   border: var(--border-thin) solid var(--border);
 }
 
-.live__msg-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.live__rc-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.live__rc-table th,
+.live__rc-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+
+.live__rc-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-sunken);
   color: var(--text-muted);
+  border-bottom: var(--border-thin) solid var(--border);
+}
+
+.live__rc-msg {
+  white-space: normal;
 }
 
 .live__sq {
