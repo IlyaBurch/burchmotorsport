@@ -319,6 +319,11 @@ func fetchLive(sessionKey string) (Live, error) {
 	}
 	key := fmt.Sprint(sessions[0].Key)
 
+	// not started yet: nothing to fetch, openf1 answers 404s or empty lists at random
+	if start, e := time.Parse(time.RFC3339, sessions[0].Start); e == nil && start.After(time.Now()) {
+		return upcomingLive(sessions[0]), nil
+	}
+
 	// free openf1 tier: 30 req/min. Budget per live session: hot 4×6/min,
 	// warm 4×1/min, cold ~0 → ~28/min. Finished sessions never change.
 	hot, warm, cold := 10*time.Second, time.Minute, 10*time.Minute
@@ -390,13 +395,7 @@ func fetchLive(sessionKey string) (Live, error) {
 		if !strings.Contains(err.Error(), "404") {
 			return Live{}, err
 		}
-		// openf1 has the session on the calendar but no timing rows
-		if start, e := time.Parse(time.RFC3339, sessions[0].Start); e == nil && start.After(time.Now()) {
-			return Live{
-				Session: sessions[0], Upcoming: true, UpdatedAt: time.Now().UTC().Format(time.RFC3339),
-				Drivers: []Driver{}, Teams: []Team{}, Radio: []Radio{}, RaceControl: []RaceControl{}, // arrays, never null
-			}, nil
-		}
+		// on the calendar, already started, but no timing rows
 		return Live{}, errNoData
 	}
 
@@ -570,6 +569,13 @@ func fetchLive(sessionKey string) (Live, error) {
 		live.RaceControl = append(live.RaceControl, rc[i])
 	}
 	return live, nil
+}
+
+func upcomingLive(s Session) Live {
+	return Live{
+		Session: s, Upcoming: true, UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+		Drivers: []Driver{}, Teams: []Team{}, Radio: []Radio{}, RaceControl: []RaceControl{}, // arrays, never null
+	}
 }
 
 type query struct {
