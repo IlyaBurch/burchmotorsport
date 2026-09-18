@@ -346,7 +346,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
             </dd>
           </div>
           <div class="live__sector">
-            <dt class="display-sm">Идеальный</dt>
+            <dt class="display-sm" title="Сумма лучших секторов">Сумма</dt>
             <dd></dd>
             <dd class="timing">{{ formatLap(idealLap) }}</dd>
           </div>
@@ -571,7 +571,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 
 .live__sector {
   display: grid;
-  grid-template-columns: max-content 56px 1fr;
+  grid-template-columns: 64px 56px 1fr;
   gap: var(--space-3);
   align-items: center;
 }
