@@ -381,7 +381,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
     </BmCard>
 
     <div class="live__pen">
-      <BmCard>
+      <BmCard class="live__pen-card">
         <div class="bm-card__eyebrow">Штрафы</div>
         <p v-if="!penalties.length" class="body-sm live__empty">Пока чисто</p>
         <ol v-else class="live__list">
@@ -396,7 +396,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         </ol>
       </BmCard>
 
-      <BmCard>
+      <BmCard class="live__pen-card">
         <div class="bm-card__eyebrow">Лимиты трассы</div>
         <p v-if="!trackLimits.length" class="body-sm live__empty">Ни одного удалённого круга</p>
         <div v-else class="live__limits">
@@ -462,7 +462,27 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live__tyres { grid-area: tyres; }
 .live__drivers { grid-area: drivers; }
 .live__teams { grid-area: teams; }
-.live__pen { grid-area: pen; display: grid; gap: var(--space-4); align-content: start; }
+.live__pen {
+  grid-area: pen;
+  display: grid;
+  grid-template-rows: 1fr 1fr; /* two equal cards, as tall as the standings row */
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.live__pen-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.live__pen-card > .live__list,
+.live__pen-card > .live__limits {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+}
 
 .live__rc { grid-area: rc; }
 
