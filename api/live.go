@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -82,8 +84,12 @@ type Radio struct {
 	URL    string `json:"recording_url"`
 }
 
+// errNoData: openf1 knows the session but has no timing for it (yet, or at all)
+var errNoData = errors.New("openf1: no data for session")
+
 type Live struct {
 	Session     Session       `json:"session"`
+	Upcoming    bool          `json:"upcoming"` // session exists but has not started
 	Drivers     []Driver      `json:"drivers"`
 	Teams       []Team        `json:"teams"`
 	Radio       []Radio       `json:"radio"` // newest first
@@ -114,11 +120,18 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, 0, err
 		}
+		if l.Upcoming {
+			return l, time.Minute, nil
+		}
 		if end, e := time.Parse(time.RFC3339, l.Session.End); e == nil && end.Add(time.Hour).Before(time.Now()) {
 			return l, forever, nil
 		}
 		return l, 5 * time.Second, nil
 	})
+	if errors.Is(err, errNoData) {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
 	writeJSON(w, v, err)
 }
 
@@ -302,7 +315,14 @@ func fetchLive(sessionKey string) (Live, error) {
 		query{"championship_teams?session_key=" + key, &champTeams},
 		query{"team_radio?session_key=" + key, &radio},
 	); err != nil {
-		return Live{}, err
+		if !strings.Contains(err.Error(), "404") {
+			return Live{}, err
+		}
+		// openf1 has the session on the calendar but no timing rows
+		if start, e := time.Parse(time.RFC3339, sessions[0].Start); e == nil && start.After(time.Now()) {
+			return Live{Session: sessions[0], Upcoming: true, Drivers: []Driver{}, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}, nil
+		}
+		return Live{}, errNoData
 	}
 
 	// car positions: last 10s for a live session, around the chequered flag otherwise

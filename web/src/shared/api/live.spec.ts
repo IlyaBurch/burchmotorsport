@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compoundLetter, formatGap, formatLap, formatSector, inkOn, penaltiesFrom, pointsFor, projectStandings, projectTeams, sessionLabel, trackLimitsFrom, type LiveDriver, type RaceControl } from './live'
+import { compoundLetter, formatGap, formatLap, formatSector, countdown, inkOn, penaltiesFrom, pointsFor, projectStandings, projectTeams, sessionLabel, trackLimitsFrom, type LiveDriver, type RaceControl } from './live'
 
 describe('live formatters', () => {
   it('formats laps as m:ss.mmm', () => {
@@ -58,5 +58,10 @@ describe('live formatters', () => {
       rc('CAR 4 (NOR) TIME 1:45.587 DELETED - TRACK LIMITS AT TURN 12 LAP 44'),
     ])
     expect([...tl]).toEqual([[81, 2], [4, 1]])
+  })
+  it('formats countdowns', () => {
+    expect(countdown(0)).toBe('Сейчас')
+    expect(countdown(90 * 60_000)).toBe('1ч 30м')
+    expect(countdown((5 * 24 + 21) * 3_600_000 + 27 * 60_000)).toBe('5 дн 21ч 27м')
   })
 })

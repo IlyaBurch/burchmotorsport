@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
-import { sessionLabel } from '@/shared/api/live'
+import { countdown, formatMsk, sessionLabel } from '@/shared/api/live'
 
 interface Next {
   session_key: number
@@ -21,27 +21,8 @@ useIntervalFn(() => (now.value = Date.now()), 30_000)
 
 const startMs = computed(() => (next.value ? Date.parse(next.value.date_start) : 0))
 
-const startMsk = computed(() =>
-  next.value
-    ? new Date(startMs.value).toLocaleString('ru-RU', {
-        timeZone: 'Europe/Moscow',
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      }) + ' МСК'
-    : '',
-)
-
-const left = computed(() => {
-  const ms = startMs.value - now.value
-  if (ms <= 0) return 'Сейчас'
-  const h = Math.floor(ms / 3_600_000)
-  const d = Math.floor(h / 24)
-  const m = Math.floor((ms % 3_600_000) / 60_000)
-  return d > 0 ? `${d} дн ${h % 24}ч ${m}м` : `${h}ч ${m}м`
-})
+const startMsk = computed(() => (next.value ? formatMsk(next.value.date_start) : ''))
+const left = computed(() => countdown(startMs.value - now.value))
 </script>
 
 <template>

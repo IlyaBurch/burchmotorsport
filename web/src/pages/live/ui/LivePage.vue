@@ -5,7 +5,9 @@ import { useIntervalFn } from '@vueuse/core'
 import { BmCard, BmChip } from '@/shared/ui'
 import {
   FIRST_SEASON,
+  NoDataError,
   compoundLetter,
+  countdown,
   fetchLive,
   fetchMeetings,
   fetchSessions,
@@ -13,6 +15,7 @@ import {
   flagClass,
   formatGap,
   formatLap,
+  formatMsk,
   formatSector,
   formatTime,
   hasStarted,
@@ -39,6 +42,9 @@ const router = useRouter()
 const live = ref<Live | null>(null)
 const outline = ref<[number, number][]>([])
 const error = ref<string | null>(null)
+const noData = ref(false)
+const now = ref(Date.now())
+useIntervalFn(() => (now.value = Date.now()), 30_000)
 
 const sessionKey = computed(() => String(route.query.session ?? 'latest'))
 
@@ -46,8 +52,10 @@ async function refresh() {
   try {
     live.value = await fetchLive(sessionKey.value)
     error.value = null
+    noData.value = false
   } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
+    noData.value = e instanceof NoDataError
+    error.value = noData.value ? null : e instanceof Error ? e.message : String(e)
   }
 }
 
@@ -57,10 +65,11 @@ watch(
   async (key) => {
     live.value = null
     outline.value = []
-    fetchTrack(key).then((o) => (outline.value = o)).catch(() => {}) // map is optional
+    noData.value = false
     await refresh()
     const l = live.value as Live | null
-    if (l && !isFinished(l.session)) poll.resume()
+    if (l && !l.upcoming) fetchTrack(key).then((o) => (outline.value = o)).catch(() => {}) // map is optional
+    if (l && !l.upcoming && !isFinished(l.session)) poll.resume()
     else poll.pause()
   },
   { immediate: true },
@@ -110,7 +119,9 @@ watch(live, async (l) => {
 })
 
 // --- derived -------------------------------------------------------------
-const finished = computed(() => !!live.value && isFinished(live.value.session))
+const finished = computed(() => !!live.value && !live.value.upcoming && isFinished(live.value.session))
+const upcoming = computed(() => !!live.value?.upcoming)
+const loading = computed(() => !live.value && !error.value && !noData.value)
 const leaderLap = computed(() => live.value?.drivers[0]?.lap ?? 0)
 
 const updated = computed(() =>
@@ -217,7 +228,9 @@ onScopeDispose(() => clearTimeout(bannerTimer))
           </h1>
           <p class="body-sm live__meta">
             <template v-if="live && finished">{{ leaderLap }} кругов · сессия завершена</template>
+            <template v-else-if="upcoming">Старт {{ formatMsk(live!.session.date_start) }}</template>
             <template v-else-if="live">Круг {{ leaderLap }} · обновлено {{ updated }}</template>
+            <template v-else-if="noData">Данных нет</template>
             <template v-else-if="error">Нет связи с данными</template>
             <template v-else>Загрузка</template>
           </p>
@@ -265,8 +278,20 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       </details>
     </BmCard>
 
+    <BmCard v-if="upcoming" class="live__status">
+      <div class="bm-card__eyebrow">До старта</div>
+      <p class="display-lg live__countdown">{{ countdown(Date.parse(live!.session.date_start) - now) }}</p>
+      <p class="body">{{ live!.session.circuit_short_name }} · {{ sessionLabel(live!.session.session_name) }} · {{ formatMsk(live!.session.date_start) }}</p>
+    </BmCard>
+
+    <BmCard v-else-if="noData" class="live__status">
+      <div class="bm-card__eyebrow">Box box</div>
+      <h2 class="display-md">Данные потерялись</h2>
+      <p class="body">Сессия была, а тайминга по ней у нас нет. Извини, разбираемся.</p>
+    </BmCard>
+
     <!-- mobile: one card per driver instead of a 12-column scrolling table -->
-    <ol v-if="live" class="live__cards" aria-label="Пилоты">
+    <ol v-if="live && !upcoming" class="live__cards" aria-label="Пилоты">
       <li v-for="d in live.drivers" :key="d.number" class="live__card">
         <div class="live__card-id" :style="d.teamColour ? { background: '#' + d.teamColour, color: inkOn(d.teamColour) } : undefined">
           <span class="display-md">{{ d.position || '—' }}</span>
@@ -300,7 +325,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       </li>
     </ol>
 
-    <div class="live__table-wrap">
+    <div v-if="loading || (live && !upcoming)" class="live__table-wrap">
       <table class="live__table">
         <thead>
           <tr class="display-sm">
@@ -356,7 +381,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       </table>
     </div>
 
-    <aside class="live__side">
+    <aside v-if="live && !upcoming" class="live__side">
       <TrackMap v-if="outline.length && live" :outline="outline" :drivers="live.drivers" />
       <div v-else class="live__skeleton live__skeleton--map" aria-busy="true" aria-label="Загрузка карты" />
 
@@ -433,7 +458,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       </ol>
     </BmCard>
 
-    <div class="live__pen">
+    <div v-if="live && !upcoming" class="live__pen">
       <BmCard class="live__pen-card">
         <div class="bm-card__eyebrow">Штрафы</div>
         <p v-if="!penalties.length" class="body-sm live__empty">Пока чисто</p>
@@ -505,7 +530,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live {
   display: grid;
   gap: var(--space-4);
-  grid-template-areas: 'flag' 'head' 'cards' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
+  grid-template-areas: 'flag' 'head' 'status' 'cards' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
 }
 
 /* grid items default to min-width:auto and would grow to the widest chart; keep them inside the viewport */
@@ -514,6 +539,8 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 }
 
 .live__head { grid-area: head; }
+.live__status { grid-area: status; text-align: center; }
+.live__countdown { margin: var(--space-3) 0; }
 .live__cards { grid-area: cards; }
 .live__table-wrap { grid-area: table; display: none; }
 
@@ -616,7 +643,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 
 @media (min-width: 768px) and (max-width: 1023px) {
   .live {
-    grid-template-areas: 'flag' 'head' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
+    grid-template-areas: 'flag' 'head' 'status' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
   }
 }
 
@@ -626,6 +653,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
     grid-template-areas:
       'flag flag flag'
       'head head head'
+      'status status status'
       'table table side'
       'chart chart chart'
       'tyres tyres tyres'

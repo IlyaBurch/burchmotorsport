@@ -66,6 +66,7 @@ export interface Radio {
 
 export interface Live {
   session: LiveSession
+  upcoming?: boolean // on the calendar, not started: drivers is empty
   drivers: LiveDriver[]
   teams: Team[]
   radio: Radio[]
@@ -87,8 +88,12 @@ export interface Session {
   date_start: string
 }
 
+/** the api knows the session but has no timing rows for it */
+export class NoDataError extends Error {}
+
 async function getJSON<T>(url: string): Promise<T> {
   const res = await fetch(url)
+  if (res.status === 404) throw new NoDataError(url)
   if (!res.ok) throw new Error(`${url}: ${res.status}`)
   return res.json()
 }
@@ -226,6 +231,25 @@ export const flagClass = (flag: string) =>
   : flag ? 'plain' : ''
 
 export const radioSrc = (url: string) => `/api/radio?url=${encodeURIComponent(url)}`
+
+/** ms until → "5 дн 21ч 27м" */
+export const countdown = (ms: number) => {
+  if (ms <= 0) return 'Сейчас'
+  const h = Math.floor(ms / 3_600_000)
+  const d = Math.floor(h / 24)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  return d > 0 ? `${d} дн ${h % 24}ч ${m}м` : `${h}ч ${m}м`
+}
+
+export const formatMsk = (iso: string) =>
+  new Date(iso).toLocaleString('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }) + ' МСК'
 
 export const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' })

@@ -88,3 +88,25 @@ func TestFetchLiveMerges(t *testing.T) {
 		t.Fatalf("bad weather/rc: %+v %+v", got.Weather, got.RaceControl)
 	}
 }
+
+func TestFetchLiveUpcomingAndMissing(t *testing.T) {
+	start := "2099-01-01T00:00:00+00:00"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/sessions" {
+			w.Write([]byte(`[{"session_key":1,"date_start":"` + start + `"}]`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+	openf1 = srv.URL + "/"
+
+	got, err := fetchLive("1")
+	if err != nil || !got.Upcoming {
+		t.Fatalf("future session should be upcoming, got %v %+v", err, got)
+	}
+	start = "2000-01-01T00:00:00+00:00"
+	if _, err := fetchLive("1"); err != errNoData {
+		t.Fatalf("past session without rows should be errNoData, got %v", err)
+	}
+}
