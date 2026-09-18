@@ -226,6 +226,8 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         <BmChip v-if="trackFlag" :variant="flagTone(trackFlag)">{{ trackFlag }}</BmChip>
       </div>
 
+      <details class="live__details">
+        <summary class="display-sm live__summary">Другая сессия</summary>
       <div class="live__pickers">
         <label>
           <span class="display-sm">Сезон</span>
@@ -260,6 +262,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
           </select>
         </label>
       </div>
+      </details>
     </BmCard>
 
     <!-- mobile: one card per driver instead of a 12-column scrolling table -->
@@ -720,13 +723,45 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   margin: 0;
 }
 
+/* session pickers fold away, native <details> */
+.live__details {
+  margin-top: var(--space-4);
+  border-top: var(--border-thin) solid var(--border);
+}
+
+.live__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--accent);
+  list-style: none;
+}
+
+.live__summary::-webkit-details-marker {
+  display: none;
+}
+
+.live__summary::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-right: 3px solid currentColor;
+  border-bottom: 3px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 100ms ease-out;
+}
+
+.live__details[open] .live__summary::before {
+  transform: rotate(45deg);
+}
+
 .live__pickers {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--space-3);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: var(--border-thin) solid var(--border);
+  padding-bottom: var(--space-2);
 }
 
 .live__pickers label {
