@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { BmHeader } from '@/components/ui'
-import { useTheme } from '@/composables/useTheme'
-import { BmButton } from '@/components/ui'
+import { BmHeader } from '@/widgets/header'
+import { useTheme } from '@/features/theme-toggle'
+import { BmButton } from '@/shared/ui'
 
 const { toggle } = useTheme()
 </script>

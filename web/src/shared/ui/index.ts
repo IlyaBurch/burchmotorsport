@@ -1,7 +1,6 @@
 export { default as BmButton } from './BmButton.vue'
 export { default as BmCard } from './BmCard.vue'
 export { default as BmChip } from './BmChip.vue'
-export { default as BmHeader } from './BmHeader.vue'
 export { default as BmInput } from './BmInput.vue'
 export { default as BmModal } from './BmModal.vue'
 export { default as BmSectorBar } from './BmSectorBar.vue'

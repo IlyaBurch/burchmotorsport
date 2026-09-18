@@ -9,7 +9,7 @@ import {
   BmTabs,
   BmModal,
   BmToast,
-} from '@/components/ui'
+} from '@/shared/ui'
 
 const activeTab = ref('race')
 const tabs = [

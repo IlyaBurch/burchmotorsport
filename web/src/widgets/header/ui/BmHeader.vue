@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useTheme } from '@/composables/useTheme'
+import { useTheme } from '@/features/theme-toggle'
 
 const { theme } = useTheme()
 </script>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BmSectorBar, BmCard, BmButton } from '@/components/ui'
+import { BmSectorBar, BmCard, BmButton } from '@/shared/ui'
 </script>
 
 <template>
