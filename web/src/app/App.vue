@@ -13,6 +13,9 @@ const route = useRoute()
 <template>
   <BmHeader>
     <NextRace />
+    <RouterLink class="bm-btn bm-btn--ghost" to="/watch">
+      Трансляция
+    </RouterLink>
     <RouterLink class="bm-btn bm-btn--ghost" to="/live">
       Телеметрия
     </RouterLink>

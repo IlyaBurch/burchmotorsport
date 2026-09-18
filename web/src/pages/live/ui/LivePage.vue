@@ -5,8 +5,6 @@ import { useIntervalFn } from '@vueuse/core'
 import { BmCard, BmChip } from '@/shared/ui'
 import {
   FIRST_SEASON,
-  NoDataError,
-  RateLimitError,
   compoundLetter,
   countdown,
   fetchLive,
@@ -21,7 +19,6 @@ import {
   formatSector,
   formatTime,
   inkOn,
-  isFinished,
   penaltiesFrom,
   projectStandings,
   projectTeams,
@@ -32,60 +29,22 @@ import {
   type Meeting,
   type Session,
 } from '@/shared/api/live'
-import TrackMap from './TrackMap.vue'
-import DriverPlate from './DriverPlate.vue'
+import { useLiveSession, TrackMap, DriverPlate } from '@/entities/session'
 import PositionsChart from './PositionsChart.vue'
 import TyreChart from './TyreChart.vue'
 
 const route = useRoute()
 const router = useRouter()
 
-const live = ref<Live | null>(null)
-const outline = ref<[number, number][]>([])
-const error = ref<string | null>(null)
-const noData = ref(false)
+const sessionKey = computed(() => String(route.query.session ?? 'latest'))
+const { live, outline, error, noData, upcoming, finished, loading } = useLiveSession(sessionKey)
 const previous = ref<Live | null>(null) // last year's race here, for upcoming previews
 const now = ref(Date.now())
 useIntervalFn(() => (now.value = Date.now()), 30_000)
-
-const sessionKey = computed(() => String(route.query.session ?? 'latest'))
-
-let retryTimer: ReturnType<typeof setTimeout> | undefined
-async function refresh() {
-  clearTimeout(retryTimer)
-  try {
-    live.value = await fetchLive(sessionKey.value)
-    error.value = null
-    noData.value = false
-  } catch (e) {
-    noData.value = e instanceof NoDataError
-    if (e instanceof RateLimitError) {
-      error.value = `Лимит OpenF1, повтор через ${e.seconds} с`
-      retryTimer = setTimeout(refresh, e.seconds * 1000)
-    } else {
-      error.value = noData.value ? null : 'Нет связи с данными'
-    }
-  }
-}
-onScopeDispose(() => clearTimeout(retryTimer))
-
-const poll = useIntervalFn(refresh, 10_000, { immediate: false })
-watch(
-  sessionKey,
-  async (key) => {
-    live.value = null
-    outline.value = []
-    previous.value = null
-    noData.value = false
-    await refresh()
-    const l = live.value as Live | null
-    if (l && !l.upcoming) fetchTrack(key).then((o) => (outline.value = o)).catch(() => {}) // map is optional
-    if (l?.upcoming) loadPreview(l)
-    if (l && !l.upcoming && !isFinished(l.session)) poll.resume()
-    else poll.pause()
-  },
-  { immediate: true },
-)
+watch(live, (l) => {
+  previous.value = null
+  if (l?.upcoming) loadPreview(l)
+})
 
 // --- upcoming session preview: last year's race here, its map and podium ----
 async function loadPreview(l: Live) {
@@ -150,9 +109,6 @@ watch(live, async (l) => {
 })
 
 // --- derived -------------------------------------------------------------
-const finished = computed(() => !!live.value && !live.value.upcoming && isFinished(live.value.session))
-const upcoming = computed(() => !!live.value?.upcoming)
-const loading = computed(() => !live.value && !error.value && !noData.value)
 const leaderLap = computed(() => live.value?.drivers[0]?.lap ?? 0)
 
 const updated = computed(() =>

@@ -6,6 +6,11 @@ export const SEO: Record<string, { title: string; description: string }> = {
     title: 'Burch Motorsport',
     description: 'Коммунити Формулы 1: живая телеметрия, трансляции и обсуждения гонок.',
   },
+  '/watch': {
+    title: 'Трансляция с телеметрией · Burch Motorsport',
+    description:
+      'Смотри гонку Формулы 1 с RuTube и живой телеметрией на одном экране: карта трассы, race control, шины и зачёт рядом с видео или поверх него.',
+  },
   '/live': {
     title: 'Живая телеметрия F1 · Burch Motorsport',
     description:

@@ -19,7 +19,7 @@ import { BmSectorBar, BmCard, BmButton } from '@/shared/ui'
       <p class="body" style="margin-top: var(--space-3)">
         Смотри гонки с телеметрией на одном экране.
       </p>
-      <BmButton style="margin-top: var(--space-4)">Скоро</BmButton>
+      <RouterLink class="bm-btn" style="margin-top: var(--space-4)" to="/watch">Смотреть</RouterLink>
     </BmCard>
 
     <BmCard>

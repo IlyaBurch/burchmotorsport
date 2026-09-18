@@ -16,6 +16,12 @@ const router = createRouter({
       meta: { full: true }, // edge-to-edge, no bm-container
     },
     {
+      path: '/watch',
+      name: 'watch',
+      component: () => import('@/pages/watch/ui/WatchPage.vue'),
+      meta: { full: true },
+    },
+    {
       path: '/design-system',
       name: 'design-system',
       component: () => import('@/pages/design-system/ui/DesignSystemPage.vue'),

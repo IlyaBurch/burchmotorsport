@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LiveDriver } from '@/shared/api/live'
-import DriverPlate from './DriverPlate.vue'
+import { DriverPlate } from '@/entities/session'
 
 const props = defineProps<{ drivers: LiveDriver[] }>()
 
