@@ -160,7 +160,10 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 
 <template>
   <section class="live">
-    <div v-if="banner" class="live__flag display-md" :class="`live__flag--${flagTone(banner)}`" role="status">
+    <div v-if="finished" class="live__flag live__flag--chequered bm-checker display-md" role="status">
+      <span>{{ sessionLabel(live!.session.session_name) }} завершена</span>
+    </div>
+    <div v-else-if="banner" class="live__flag display-md" :class="`live__flag--${flagTone(banner)}`" role="status">
       {{ banner }}
     </div>
 
@@ -345,6 +348,19 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live__flag--red { background: var(--flag-red); }
 .live__flag--purple { background: var(--timing-purple); }
 .live__flag--default { background: var(--surface-raised); color: var(--text); }
+
+/* chequered: the brand checker pattern from bm.css, text on a solid plate so it stays readable */
+.live__flag--chequered {
+  padding: var(--space-2);
+}
+
+.live__flag--chequered span {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  background: var(--paper);
+  color: var(--ink);
+  border: var(--border-thin) solid var(--border);
+}
 
 .live__head { grid-area: head; }
 .live__side { grid-area: side; display: grid; gap: var(--space-4); align-content: start; }
