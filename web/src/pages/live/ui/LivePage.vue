@@ -524,6 +524,35 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   margin-top: var(--space-2);
 }
 
+.live__sectors-card {
+  flex: 1; /* fills the side column down to the table's bottom edge */
+  display: flex;
+  flex-direction: column;
+}
+
+.live__sectors {
+  flex: 1;
+  display: grid;
+  align-content: space-evenly;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+}
+
+.live__sector {
+  display: grid;
+  grid-template-columns: 72px auto 1fr;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.live__sector dd {
+  margin: 0;
+}
+
+.live__sector dd:last-child {
+  justify-self: end;
+}
+
 .live__weather {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
