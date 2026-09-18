@@ -90,6 +90,16 @@ export interface Session {
   date_end: string
 }
 
+export interface Resolved {
+  title: string
+  published: string
+  session: (LiveSession & { country_name: string }) | null
+  confidence: 'date+title' | 'date' | 'title' | ''
+}
+
+/** which openf1 session a RuTube video is about, by its date and title */
+export const resolveRutube = (id: string) => getJSON<Resolved>(`/api/resolve?rutube=${id}`)
+
 /** previous year's race on the same circuit, for previews of upcoming sessions */
 export async function findPreviousRace(circuit: string, year: number): Promise<Session | null> {
   const meeting = (await fetchMeetings(year - 1)).find((m) => m.circuit_short_name === circuit)

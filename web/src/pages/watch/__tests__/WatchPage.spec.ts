@@ -5,8 +5,8 @@ import WatchPage from '../ui/WatchPage.vue'
 
 const id = '0123456789abcdef0123456789abcdef'
 
-async function mountAt(path: string) {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response('no data', { status: 404 })))
+async function mountAt(path: string, handler: (url: string) => Response = () => new Response('no data', { status: 404 })) {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => handler(url)))
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/watch', component: WatchPage }] })
   await router.push(path)
   const w = mount(WatchPage, { global: { plugins: [router], stubs: { Teleport: true } } })
@@ -30,5 +30,15 @@ describe('WatchPage', () => {
   it('embeds the player when the url carries a video id', async () => {
     const { w } = await mountAt(`/watch?v=${id}&session=1`)
     expect(w.find('iframe').attributes('src')).toContain(`/play/embed/${id}`)
+  })
+
+  it('resolves the session from the video when the url has none', async () => {
+    const { w, router } = await mountAt(`/watch?v=${id}`, (url) =>
+      url.startsWith('/api/resolve')
+        ? new Response(JSON.stringify({ title: 't', published: '', confidence: 'date+title', session: { session_key: 9947 } }), { status: 200 })
+        : new Response('no data', { status: 404 }),
+    )
+    expect(router.currentRoute.value.query.session).toBe('9947')
+    expect(w.text()).toContain('По видео')
   })
 })

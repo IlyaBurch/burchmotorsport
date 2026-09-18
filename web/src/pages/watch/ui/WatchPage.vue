@@ -2,10 +2,10 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLocalStorage } from '@vueuse/core'
-import { Maximize2, Volume2 } from 'lucide-vue-next'
+import { PanelRightClose, PanelRightOpen, Volume2 } from 'lucide-vue-next'
 import { BmButton, BmCard, BmChip, BmInput, BmModal, BmTabs } from '@/shared/ui'
 import { parseRutubeId } from '@/shared/lib/rutube'
-import { sessionLabel } from '@/shared/api/live'
+import { resolveRutube, sessionLabel } from '@/shared/api/live'
 import { useLiveSession } from '@/entities/session'
 import { RutubePlayer } from '@/features/rutube-player'
 import { useTheater, type PanelMode } from '@/features/theater-mode'
@@ -31,6 +31,23 @@ function open() {
 // --- telemetry for the session from the url ------------------------------------
 const sessionKey = computed(() => String(route.query.session ?? 'latest'))
 const { live, outline, error, upcoming, finished } = useLiveSession(sessionKey)
+
+// no session in the url: ask the api which one the video is about
+const resolved = ref<'' | 'found' | 'missed'>('')
+watch(
+  videoId,
+  async (id) => {
+    if (!id || route.query.session) return
+    try {
+      const r = await resolveRutube(id)
+      resolved.value = r.session ? 'found' : 'missed'
+      if (r.session) router.replace({ query: { ...route.query, session: String(r.session.session_key) } })
+    } catch {
+      resolved.value = 'missed'
+    }
+  },
+  { immediate: true },
+)
 
 // --- layout --------------------------------------------------------------------
 const wrapper = ref<HTMLElement | null>(null)
@@ -79,6 +96,8 @@ function ack() {
           <BmChip v-if="upcoming" variant="yellow">Ещё не началась</BmChip>
           <BmChip v-else-if="finished" variant="purple">Архив</BmChip>
           <BmChip v-else-if="error" variant="red">{{ error }}</BmChip>
+          <BmChip v-if="resolved === 'found'" variant="green">По видео</BmChip>
+          <BmChip v-else-if="resolved === 'missed'" variant="yellow">Сессию по видео не нашли</BmChip>
         </div>
         <div class="watch__controls">
           <BmTabs v-model="theater.mode.value" :tabs="modes" />
@@ -89,12 +108,13 @@ function ack() {
         </div>
       </div>
 
-      <div ref="wrapper" class="watch__stage" :class="`watch__stage--${theater.effective.value}`">
+      <div ref="wrapper" class="watch__stage" :class="`watch__stage--${theater.mode.value}`">
         <RutubePlayer ref="player" :video-id="videoId" class="watch__video" />
 
-        <div v-if="theater.effective.value === 'over'" class="watch__overlay">
+        <div v-if="theater.mode.value === 'over'" class="watch__overlay">
           <BmButton class="watch__toggle" :aria-label="panelOpen ? 'Скрыть телеметрию' : 'Показать телеметрию'" @click="panelOpen = !panelOpen">
-            <Maximize2 :size="20" :stroke-width="2.5" />
+            <PanelRightClose v-if="panelOpen" :size="20" :stroke-width="2.5" />
+            <PanelRightOpen v-else :size="20" :stroke-width="2.5" />
           </BmButton>
           <LivePanel v-show="panelOpen" :live="live" :outline="outline" compact class="watch__panel" />
         </div>
@@ -189,8 +209,15 @@ function ack() {
   width: 100%;
 }
 
-/* fullscreen: video fills the screen, overlay stays */
+/* fullscreen: only video + panel, in whichever mode was picked */
 .watch__stage:fullscreen {
+  padding: var(--space-4);
+  box-sizing: border-box;
+  height: 100%;
+  align-items: stretch;
+}
+
+.watch__stage--over:fullscreen {
   display: block;
   padding: 0;
 }
@@ -199,5 +226,14 @@ function ack() {
   height: 100%;
   aspect-ratio: auto;
   border: 0;
+}
+
+.watch__stage--side:fullscreen {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.watch__stage--side:fullscreen .watch__panel {
+  max-height: 100%;
+  overflow-y: auto;
 }
 </style>

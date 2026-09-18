@@ -1,11 +1,12 @@
-import { computed, onScopeDispose, ref, type Ref } from 'vue'
+import { onScopeDispose, ref, type Ref } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 
 export type PanelMode = 'side' | 'over'
 
 /**
  * Video + telemetry layout: panel beside the video or over it. Fullscreen is
- * requested on the wrapper so the panel stays visible, and forces "over".
+ * requested on the wrapper, not the iframe, so the panel stays on screen in
+ * either mode.
  */
 export function useTheater(wrapper: Ref<HTMLElement | null>) {
   const mode = useLocalStorage<PanelMode>('bm.watch.mode', 'side')
@@ -18,7 +19,5 @@ export function useTheater(wrapper: Ref<HTMLElement | null>) {
   const enter = () => wrapper.value?.requestFullscreen?.().catch(() => {})
   const exit = () => document.exitFullscreen?.().catch(() => {})
 
-  const effective = computed<PanelMode>(() => (fullscreen.value ? 'over' : mode.value))
-
-  return { mode, fullscreen, effective, enter, exit }
+  return { mode, fullscreen, enter, exit }
 }
