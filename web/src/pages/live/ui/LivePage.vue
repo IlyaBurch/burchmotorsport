@@ -159,6 +159,9 @@ const bestSectorHolders = computed(() =>
     return { i, best, d }
   }),
 )
+const bestLapHolder = computed(() =>
+  live.value?.drivers.find((d) => d.bestLap != null && d.bestLap === overallBestLap.value) ?? null,
+)
 const idealLap = computed(() => {
   const s = overallBestSectors.value
   return s.every((x) => x != null) ? s.reduce((a, b) => a! + b!, 0) : null
@@ -265,10 +268,10 @@ onScopeDispose(() => clearTimeout(bannerTimer))
             <th class="live__num">Пит</th>
             <th class="live__num">Отрыв</th>
             <th class="live__num">Интервал</th>
-            <th class="live__num">Круг</th>
-            <th class="live__num">S1</th>
-            <th class="live__num">S2</th>
-            <th class="live__num">S3</th>
+            <th class="live__num" title="Последний круг">Круг</th>
+            <th class="live__num" title="Сектор последнего круга">S1</th>
+            <th class="live__num" title="Сектор последнего круга">S2</th>
+            <th class="live__num" title="Сектор последнего круга">S3</th>
             <th class="live__num">Лучший</th>
             <th class="live__num">Скорость</th>
           </tr>
@@ -324,7 +327,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       </dl>
 
       <BmCard v-if="live" class="live__sectors-card">
-        <div class="bm-card__eyebrow">Лучшие сектора</div>
+        <div class="bm-card__eyebrow">Лучшие за сессию</div>
         <dl class="live__sectors">
           <div v-for="b in bestSectorHolders" :key="b.i" class="live__sector">
             <dt class="display-sm">S{{ b.i + 1 }}</dt>
@@ -335,7 +338,15 @@ onScopeDispose(() => clearTimeout(bannerTimer))
             </dd>
           </div>
           <div class="live__sector">
-            <dt class="display-sm">Лучший</dt>
+            <dt class="display-sm">Круг</dt>
+            <dd><DriverPlate v-if="bestLapHolder" :label="bestLapHolder.acronym" :colour="bestLapHolder.teamColour" /></dd>
+            <dd>
+              <BmChip v-if="bestLapHolder" variant="purple">{{ formatLap(bestLapHolder.bestLap) }}</BmChip>
+              <span v-else class="body-sm">—</span>
+            </dd>
+          </div>
+          <div class="live__sector">
+            <dt class="display-sm">Идеальный</dt>
             <dd></dd>
             <dd class="timing">{{ formatLap(idealLap) }}</dd>
           </div>
