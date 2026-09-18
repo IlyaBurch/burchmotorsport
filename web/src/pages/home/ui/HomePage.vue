@@ -35,6 +35,41 @@ fetchLive('latest')
   .catch(() => {})
 
 const { theme } = useTheme()
+const nl = computed(() => theme.value === 'night-lords')
+
+// ponytail: two copies of the home page copy, picked by theme. If a third
+// theme ever wants its own words, move this into shared/i18n.
+const copy = computed(() =>
+  nl.value
+    ? {
+        kicker: 'VIII легион · Нострамо',
+        title: 'Пит-уолл Ночного Охотника',
+        lead: 'Ауспекс, вокс и пикт-каналы Астартес. Всё, что видит Легион с орбиты, у тебя на когитаторе.',
+        watch: 'Открыть пикт-канал',
+        live: 'Ауспекс',
+        nextTitle: 'Следующая охота',
+        f1: { eyebrow: 'Вокс', title: 'Пикт-трансляции', text: 'Картинка с RuTube и ауспекс на одном экране: карта сектора, приказы командования, шины, зачёт.', cta: 'Смотреть' },
+        f2: { eyebrow: 'Ауспекс', title: 'Телеметрия', text: 'Позиции, отрывы, сектора, стратегия шин, вокс-перехваты команд. Архив всех охот с 2023 года.', cta: 'Открыть' },
+        f3: { eyebrow: 'Легион', title: 'Братство', text: 'Обсуждения, пророчества, Fantasy F1. Страх сильнее веры.', cta: 'Скоро' },
+        lastTitle: 'Последняя охота',
+        bestLap: 'Быстрейший из братьев',
+        review: 'Хроники охоты',
+      }
+    : {
+        kicker: 'Burch Motorsport',
+        title: 'Личный пит-уолл',
+        lead: 'Телеметрия, трансляции и коммунити Формулы 1. Всё, что видит команда на пит-уолле, у тебя на экране.',
+        watch: 'Смотреть трансляцию',
+        live: 'Телеметрия',
+        nextTitle: 'Ближайшая сессия',
+        f1: { eyebrow: 'Live', title: 'Трансляции', text: 'Видео с RuTube и телеметрия на одном экране: карта, race control, шины, зачёт.', cta: 'Смотреть' },
+        f2: { eyebrow: 'Data', title: 'Телеметрия', text: 'Позиции, отрывы, сектора, стратегия шин, радио команд. Архив всех сессий с 2023 года.', cta: 'Открыть' },
+        f3: { eyebrow: 'Community', title: 'Коммунити', text: 'Обсуждения, прогнозы, Fantasy F1.', cta: 'Скоро' },
+        lastTitle: 'Последняя сессия',
+        bestLap: 'Лучший круг',
+        review: 'Разбор сессии',
+      },
+)
 const now = ref(Date.now())
 useIntervalFn(() => (now.value = Date.now()), 30_000)
 
@@ -50,18 +85,18 @@ const bestLap = computed(() => {
     <div class="home__plate bm-card">
       <img src="/brand/mark.svg" alt="Burch Motorsport" class="home__mark" />
       <div class="home__plate-text">
-        <div class="display-sm home__kicker">Burch Motorsport</div>
-        <h1 class="display-xl">Личный пит-уолл</h1>
-        <p class="body-lg home__lead">Телеметрия, трансляции и коммунити Формулы 1. Всё, что видит команда на пит-уолле, у тебя на экране.</p>
+        <div class="display-sm home__kicker">{{ copy.kicker }}</div>
+        <h1 class="display-xl">{{ copy.title }}</h1>
+        <p class="body-lg home__lead">{{ copy.lead }}</p>
         <div class="home__actions">
-          <RouterLink class="bm-btn bm-btn--primary" to="/watch">Смотреть трансляцию</RouterLink>
-          <RouterLink class="bm-btn" to="/live">Телеметрия</RouterLink>
+          <RouterLink class="bm-btn bm-btn--primary" to="/watch">{{ copy.watch }}</RouterLink>
+          <RouterLink class="bm-btn" to="/live">{{ copy.live }}</RouterLink>
         </div>
       </div>
     </div>
 
     <BmCard v-if="next" class="home__next">
-      <div class="bm-card__eyebrow">Ближайшая сессия</div>
+      <div class="bm-card__eyebrow">{{ copy.nextTitle }}</div>
       <p class="display-lg home__countdown">{{ countdown(Date.parse(next.date_start) - now) }}</p>
       <p class="body-strong">{{ sessionLabel(next.session_name) }} · {{ next.location }}, {{ next.country_name }}</p>
       <p class="body-sm">{{ formatMsk(next.date_start) }}</p>
@@ -76,7 +111,7 @@ const bestLap = computed(() => {
     </BmCard>
   </section>
 
-  <section v-if="theme === 'night-lords'" class="home__legion bm-card">
+  <section v-if="nl" class="home__legion bm-card">
     <img src="/brand/night-lords.png" alt="Night Lords" class="home__legion-emblem" />
     <div>
       <div class="bm-card__eyebrow">VIII легион</div>
@@ -91,28 +126,28 @@ const bestLap = computed(() => {
 
   <section class="home__grid">
     <BmCard class="home__feature">
-      <div class="bm-card__eyebrow">Live</div>
-      <h2 class="bm-card__title">Трансляции</h2>
-      <p class="body">Видео с RuTube и телеметрия на одном экране: карта, race control, шины, зачёт.</p>
-      <RouterLink class="bm-btn home__cta" to="/watch">Смотреть</RouterLink>
+      <div class="bm-card__eyebrow">{{ copy.f1.eyebrow }}</div>
+      <h2 class="bm-card__title">{{ copy.f1.title }}</h2>
+      <p class="body">{{ copy.f1.text }}</p>
+      <RouterLink class="bm-btn home__cta" to="/watch">{{ copy.f1.cta }}</RouterLink>
     </BmCard>
 
     <BmCard class="home__feature">
-      <div class="bm-card__eyebrow">Data</div>
-      <h2 class="bm-card__title">Телеметрия</h2>
-      <p class="body">Позиции, отрывы, сектора, стратегия шин, радио команд. Архив всех сессий с 2023 года.</p>
-      <RouterLink class="bm-btn home__cta" to="/live">Открыть</RouterLink>
+      <div class="bm-card__eyebrow">{{ copy.f2.eyebrow }}</div>
+      <h2 class="bm-card__title">{{ copy.f2.title }}</h2>
+      <p class="body">{{ copy.f2.text }}</p>
+      <RouterLink class="bm-btn home__cta" to="/live">{{ copy.f2.cta }}</RouterLink>
     </BmCard>
 
     <BmCard class="home__feature">
-      <div class="bm-card__eyebrow">Community</div>
-      <h2 class="bm-card__title">Коммунити</h2>
-      <p class="body">Обсуждения, прогнозы, Fantasy F1.</p>
-      <span class="bm-btn home__cta" aria-disabled="true">Скоро</span>
+      <div class="bm-card__eyebrow">{{ copy.f3.eyebrow }}</div>
+      <h2 class="bm-card__title">{{ copy.f3.title }}</h2>
+      <p class="body">{{ copy.f3.text }}</p>
+      <span class="bm-btn home__cta" aria-disabled="true">{{ copy.f3.cta }}</span>
     </BmCard>
 
     <BmCard v-if="last" class="home__last">
-      <div class="bm-card__eyebrow">Последняя сессия</div>
+      <div class="bm-card__eyebrow">{{ copy.lastTitle }}</div>
       <h2 class="bm-card__title">{{ last.session.circuit_short_name }} · {{ sessionLabel(last.session.session_name) }}</h2>
       <ol class="home__podium">
         <li v-for="d in podium" :key="d.number">
@@ -123,12 +158,12 @@ const bestLap = computed(() => {
         </li>
       </ol>
       <p v-if="bestLap" class="home__best">
-        <span class="body-sm">Лучший круг</span>
+        <span class="body-sm">{{ copy.bestLap }}</span>
         <DriverPlate :label="bestLap.acronym" :colour="bestLap.teamColour" />
         <BmChip variant="purple">{{ formatLap(bestLap.bestLap) }}</BmChip>
       </p>
       <RouterLink class="bm-btn home__cta" :to="{ path: '/live', query: { session: String(last.session.session_key) } }">
-        Разбор сессии
+        {{ copy.review }}
       </RouterLink>
     </BmCard>
   </section>
