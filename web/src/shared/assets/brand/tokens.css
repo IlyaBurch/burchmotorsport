@@ -123,16 +123,18 @@ html[data-theme="dark"] {
 }
 
 /* ── Semantic tokens: NIGHT LORDS (easter egg) ─────────
-   Midnight armour, bronze trim, bone-white text. Same contract as dark. */
+   Kantor Blue armour, Mephiston Red cloak, bronze trim, bone-white text.
+   Same contract as dark; --accent-2 exists only here (emblem, trims). */
 html[data-theme="night-lords"] {
-  --surface:        #06081a;
-  --surface-raised: #12173a;
-  --surface-sunken: #03040f;
+  --surface:        #061231;
+  --surface-raised: #0f2452;
+  --surface-sunken: #03091f;
   --text:           #ece7d9;
-  --text-muted:     #9a95b3;
+  --text-muted:     #9aa3c4;
   --border:         var(--ink);
-  --accent:         #c9a24a;
+  --accent:         #ef5a5e; /* Evil Sunz Scarlet, lightened to pass 4.5:1 on the armour blue */
   --on-accent:      var(--ink);
+  --accent-2:       #b58a3d;
 }
 
 /* ── Semantic tokens: LIGHT ───────────────────────────── */

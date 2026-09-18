@@ -16,7 +16,7 @@ import { Skull, Zap } from 'lucide-vue-next'
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--accent);
+  color: var(--accent-2, var(--accent)); /* bronze trim, red only in the eyes of the crowd */
 }
 
 .emblem__wing--l {
