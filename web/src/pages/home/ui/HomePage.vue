@@ -45,8 +45,7 @@ const bestLap = computed(() => {
 
 <template>
   <section class="home__hero">
-    <!-- brand plate: flat blue-600, mark as an image, paper text on top (guide §2) -->
-    <div class="home__plate">
+    <div class="home__plate bm-card">
       <img src="/brand/mark.svg" alt="Burch Motorsport" class="home__mark" />
       <div class="home__plate-text">
         <div class="display-sm home__kicker">Burch Motorsport</div>
@@ -54,7 +53,7 @@ const bestLap = computed(() => {
         <p class="body-lg home__lead">Телеметрия, трансляции и коммунити Формулы 1. Всё, что видит команда на пит-уолле, у тебя на экране.</p>
         <div class="home__actions">
           <RouterLink class="bm-btn bm-btn--primary" to="/watch">Смотреть трансляцию</RouterLink>
-          <RouterLink class="bm-btn home__btn-paper" to="/live">Телеметрия</RouterLink>
+          <RouterLink class="bm-btn" to="/live">Телеметрия</RouterLink>
         </div>
       </div>
     </div>
@@ -132,18 +131,13 @@ const bestLap = computed(() => {
 @media (min-width: 1024px) {
   .home__hero {
     grid-template-columns: minmax(0, 1fr) 380px;
-    align-items: center;
+    align-items: stretch; /* both cards share the row height */
   }
 }
 
 .home__plate {
   display: grid;
   gap: var(--space-4);
-  padding: var(--space-6);
-  background: var(--blue-600);
-  color: var(--paper);
-  border: var(--border-thick) solid var(--border);
-  box-shadow: var(--shadow-hard-lg);
 }
 
 @media (min-width: 768px) {
@@ -151,9 +145,6 @@ const bestLap = computed(() => {
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: var(--space-8);
-    padding: var(--space-8);
-    min-height: 100%;
-    box-sizing: border-box;
   }
 }
 
@@ -169,7 +160,7 @@ const bestLap = computed(() => {
 }
 
 .home__kicker {
-  color: var(--blue-200);
+  color: var(--accent);
 }
 
 .home__lead {
@@ -177,11 +168,7 @@ const bestLap = computed(() => {
   max-width: 44ch;
 }
 
-/* secondary button on the blue plate: paper fill so it reads against blue-600 */
-.home__btn-paper {
-  background: var(--paper);
-  color: var(--ink);
-}
+
 
 .home__actions {
   display: flex;
