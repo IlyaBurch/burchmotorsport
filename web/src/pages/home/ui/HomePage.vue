@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { BmSectorBar, BmCard, BmChip } from '@/shared/ui'
 import { DriverPlate } from '@/entities/session'
+import { useTheme } from '@/features/theme-toggle'
 import {
   countdown,
   fetchLive,
@@ -33,6 +34,7 @@ fetchLive('latest')
   .then((l) => (last.value = l.upcoming ? null : l))
   .catch(() => {})
 
+const { theme } = useTheme()
 const now = ref(Date.now())
 useIntervalFn(() => (now.value = Date.now()), 30_000)
 
@@ -72,6 +74,16 @@ const bestLap = computed(() => {
         </li>
       </ol>
     </BmCard>
+  </section>
+
+  <section v-if="theme === 'night-lords'" class="home__legion bm-card">
+    <img src="/brand/night-lords.png" alt="Night Lords" class="home__legion-emblem" />
+    <div>
+      <div class="bm-card__eyebrow">VIII легион</div>
+      <h2 class="display-lg">Ave Dominus Nox, нас ведёт Конрад Керз</h2>
+      <p class="body-lg">Мы не просим верности. Мы приходим ночью, и страх делает остальное.</p>
+      <p class="body-sm">Повелители Ночи. Нострамо помнит.</p>
+    </div>
   </section>
 
   <BmSectorBar class="home__bar" />
@@ -213,6 +225,26 @@ const bestLap = computed(() => {
 
 .home__bar {
   margin-block: var(--space-12);
+}
+
+.home__legion {
+  display: grid;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .home__legion {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+}
+
+.home__legion-emblem {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  justify-self: center;
 }
 
 .home__grid {

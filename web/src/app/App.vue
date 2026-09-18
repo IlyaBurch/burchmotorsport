@@ -2,7 +2,7 @@
 import { BmHeader } from '@/widgets/header'
 import { useTheme } from '@/features/theme-toggle'
 import { NextRace } from '@/widgets/next-race'
-import { useNightLords, NightLordsEmblem } from '@/features/night-lords'
+import { useNightLords } from '@/features/night-lords'
 import { BmButton, BmToast } from '@/shared/ui'
 import { useRoute } from 'vue-router'
 import { Moon, Sun } from 'lucide-vue-next'
@@ -14,7 +14,6 @@ const egg = useNightLords()
 
 <template>
   <BmHeader @logo="egg.tap()">
-    <NightLordsEmblem v-if="egg.active.value" />
     <NextRace />
     <RouterLink class="bm-btn bm-btn--ghost" to="/watch">
       Трансляция
