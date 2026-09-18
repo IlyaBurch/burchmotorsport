@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLocalStorage } from '@vueuse/core'
-import { PanelRightClose, PanelRightOpen, Volume2 } from 'lucide-vue-next'
+import { Maximize, Minimize, PanelRightClose, PanelRightOpen, Volume2 } from 'lucide-vue-next'
 import { BmButton, BmCard, BmChip, BmInput, BmModal, BmTabs } from '@/shared/ui'
 import { parseRutubeId } from '@/shared/lib/rutube'
 import { resolveRutube, sessionLabel } from '@/shared/api/live'
@@ -40,6 +40,13 @@ watch(
     if (!id || route.query.session) return
     try {
       const r = await resolveRutube(id)
+      if (!r.f1 && !r.session) {
+        // not Formula 1: back to the form with the reason
+        linkError.value = 'Похоже, это не Формула 1. Нужна ссылка на видео или трансляцию F1'
+        link.value = ''
+        router.replace({ query: { ...route.query, v: undefined } })
+        return
+      }
       resolved.value = r.session ? 'found' : 'missed'
       if (r.session) router.replace({ query: { ...route.query, session: String(r.session.session_key) } })
     } catch {
@@ -59,12 +66,12 @@ const modes = [
 ]
 const panelOpen = ref(true)
 
-// one click: sound on + our wrapper fullscreen, panel stays on top of the video
-function watchNow() {
+// sound needs a user gesture; autoplay started muted
+function unmute() {
   player.value?.play()
   player.value?.unmute()
-  theater.enter()
 }
+const toggleFullscreen = () => (theater.fullscreen.value ? theater.exit() : theater.enter())
 
 // --- one-time warning about broadcast vs timing offset ---------------------------
 const warned = useLocalStorage('bm.watch.warned', false)
@@ -101,15 +108,21 @@ function ack() {
         </div>
         <div class="watch__controls">
           <BmTabs v-model="theater.mode.value" :tabs="modes" />
-          <BmButton variant="primary" @click="watchNow">
+          <BmButton variant="primary" @click="unmute">
             <Volume2 :size="20" :stroke-width="2.5" />
-            Смотреть
+            Звук
+          </BmButton>
+          <BmButton aria-label="Во весь экран" @click="toggleFullscreen">
+            <Maximize :size="20" :stroke-width="2.5" />
           </BmButton>
         </div>
       </div>
 
       <div ref="wrapper" class="watch__stage" :class="`watch__stage--${theater.mode.value}`">
         <RutubePlayer ref="player" :video-id="videoId" class="watch__video" />
+        <BmButton v-if="theater.fullscreen.value" class="watch__exit" aria-label="Выйти из полного экрана" @click="theater.exit()">
+          <Minimize :size="20" :stroke-width="2.5" />
+        </BmButton>
 
         <div v-if="theater.mode.value === 'over'" class="watch__overlay">
           <BmButton class="watch__toggle" :aria-label="panelOpen ? 'Скрыть телеметрию' : 'Показать телеметрию'" @click="panelOpen = !panelOpen">
@@ -207,6 +220,13 @@ function ack() {
 
 .watch__overlay .watch__panel {
   width: 100%;
+}
+
+.watch__exit {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: 2;
 }
 
 /* fullscreen: only video + panel, in whichever mode was picked */

@@ -48,4 +48,30 @@ func TestSessionFromTitle(t *testing.T) {
 	if countryFromTitle("ГОНКА ГООННККААААА Великобритания 9 этап 2026") != "United Kingdom" {
 		t.Error("country from title")
 	}
+	for title, want := range map[string]bool{
+		"Формула 1 - Гран-При Италии": true, "F1 Monza race": true, "Ф1 Монца": true,
+		"ГОНКА ГООННККААААА Великобритания 9 этап 2026": false, // relies on the country hit instead
+		"Котики играют": false,
+	} {
+		if f1Re.MatchString(title) != want {
+			t.Errorf("f1 %q want %v", title, want)
+		}
+	}
+}
+
+func TestResolveNotF1(t *testing.T) {
+	resetCache()
+	rt := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"title":"Котики играют","publication_ts":"2025-07-06T16:27:21"}`))
+	}))
+	defer rt.Close()
+	of := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("openf1 must not be asked about a cat video: %s", r.URL)
+	}))
+	defer of.Close()
+	rutubeAPI, openf1 = rt.URL+"/", of.URL+"/"
+	got, err := resolveRutube("ee1a3832d90cc60b507ff90a4d978a43")
+	if err != nil || got.F1 || got.Session != nil {
+		t.Fatalf("got %+v err %v", got, err)
+	}
 }

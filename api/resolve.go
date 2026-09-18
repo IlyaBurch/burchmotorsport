@@ -16,7 +16,11 @@ type Resolve struct {
 	Published  string   `json:"published"`
 	Session    *Session `json:"session"`    // nil when nothing matched
 	Confidence string   `json:"confidence"` // "date+title", "date", "title", ""
+	F1         bool     `json:"f1"`         // looks like Formula 1 at all
 }
+
+// \b is ASCII-only in Go, so word edges are spelled out for the Cyrillic forms
+var f1Re = regexp.MustCompile(`(?i)формул|formula|grand prix|гран[\s-]*при|(?:^|[^\pL\pN])(?:f1|ф1|ф-1)(?:[^\pL\pN]|$)`)
 
 var sessionWords = []struct {
 	re   *regexp.Regexp
@@ -102,18 +106,19 @@ func resolveRutube(id string) (Resolve, error) {
 	if pub == "" {
 		pub = meta.Created
 	}
-	res := Resolve{Title: meta.Title, Published: pub}
+	res := Resolve{Title: meta.Title, Published: pub, F1: f1Re.MatchString(meta.Title)}
 
 	want := sessionFromTitle(meta.Title)
 	country := countryFromTitle(meta.Title)
 
-	// 1. by date: sessions that started in the 4 days before publication
-	if t, e := time.Parse("2006-01-02T15:04:05", pub); e == nil {
+	// 1. by date: sessions that started in the 4 days before publication.
+	// Only for titles that look like F1, or every cat video from a race sunday would match.
+	if t, e := time.Parse("2006-01-02T15:04:05", pub); e == nil && (res.F1 || country != "") {
 		var s []Session
 		q := fmt.Sprintf("sessions?date_start>=%s&date_start<=%s", t.Add(-4*24*time.Hour).Format("2006-01-02"), t.Add(6*time.Hour).Format("2006-01-02T15:04:05"))
 		if err := cached(q, forever, &s); err == nil {
 			if best := pick(s, want, country); best != nil {
-				res.Session, res.Confidence = best, "date"
+				res.Session, res.Confidence, res.F1 = best, "date", true
 				if country != "" && best.Country == country {
 					res.Confidence = "date+title"
 				}
@@ -126,7 +131,7 @@ func resolveRutube(id string) (Resolve, error) {
 		var s []Session
 		q := fmt.Sprintf("sessions?year=%s&country_name=%s&session_name=%s", year, strings.ReplaceAll(country, " ", "%20"), strings.ReplaceAll(want, " ", "%20"))
 		if err := cached(q, forever, &s); err == nil && len(s) > 0 {
-			res.Session, res.Confidence = &s[len(s)-1], "title"
+			res.Session, res.Confidence, res.F1 = &s[len(s)-1], "title", true
 		}
 	}
 	return res, nil

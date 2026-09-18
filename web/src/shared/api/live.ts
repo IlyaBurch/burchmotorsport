@@ -95,6 +95,7 @@ export interface Resolved {
   published: string
   session: (LiveSession & { country_name: string }) | null
   confidence: 'date+title' | 'date' | 'title' | ''
+  f1: boolean
 }
 
 /** which openf1 session a RuTube video is about, by its date and title */

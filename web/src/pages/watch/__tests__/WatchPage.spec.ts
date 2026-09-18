@@ -41,4 +41,15 @@ describe('WatchPage', () => {
     expect(router.currentRoute.value.query.session).toBe('9947')
     expect(w.text()).toContain('По видео')
   })
+
+  it('sends non-F1 videos back to the form', async () => {
+    const { w, router } = await mountAt(`/watch?v=${id}`, (url) =>
+      url.startsWith('/api/resolve')
+        ? new Response(JSON.stringify({ title: 'Котики', published: '', confidence: '', session: null, f1: false }), { status: 200 })
+        : new Response('no data', { status: 404 }),
+    )
+    expect(router.currentRoute.value.query.v).toBeUndefined()
+    expect(w.find('iframe').exists()).toBe(false)
+    expect(w.text()).toContain('не Формула 1')
+  })
 })
