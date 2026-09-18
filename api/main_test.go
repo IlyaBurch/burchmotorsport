@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -108,6 +110,12 @@ func TestFetchLiveUpcomingAndMissing(t *testing.T) {
 	got, err := fetchLive("1")
 	if err != nil || !got.Upcoming {
 		t.Fatalf("future session should be upcoming, got %v %+v", err, got)
+	}
+	b, _ := json.Marshal(got)
+	for _, k := range []string{`"drivers":[]`, `"teams":[]`, `"radio":[]`, `"raceControl":[]`} {
+		if !strings.Contains(string(b), k) {
+			t.Fatalf("upcoming payload must contain %s: %s", k, b)
+		}
 	}
 	start = "2000-01-01T00:00:00+00:00"
 	resetCache()

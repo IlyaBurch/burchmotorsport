@@ -392,7 +392,10 @@ func fetchLive(sessionKey string) (Live, error) {
 		}
 		// openf1 has the session on the calendar but no timing rows
 		if start, e := time.Parse(time.RFC3339, sessions[0].Start); e == nil && start.After(time.Now()) {
-			return Live{Session: sessions[0], Upcoming: true, Drivers: []Driver{}, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}, nil
+			return Live{
+				Session: sessions[0], Upcoming: true, UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+				Drivers: []Driver{}, Teams: []Team{}, Radio: []Radio{}, RaceControl: []RaceControl{}, // arrays, never null
+			}, nil
 		}
 		return Live{}, errNoData
 	}
@@ -556,7 +559,7 @@ func fetchLive(sessionKey string) (Live, error) {
 		teams = append(teams, team)
 	}
 
-	live := Live{Session: sessions[0], Drivers: out, Teams: teams, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+	live := Live{Session: sessions[0], Drivers: out, Teams: teams, Radio: []Radio{}, RaceControl: []RaceControl{}, UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
 	for i := len(radio) - 1; i >= 0; i-- {
 		live.Radio = append(live.Radio, radio[i])
 	}
