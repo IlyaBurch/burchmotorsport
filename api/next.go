@@ -13,12 +13,12 @@ type NextRace struct {
 	Start    string `json:"date_start"`
 }
 
-// GET /api/next -> the next Race session on the calendar, cached for an hour
+// GET /api/next -> the next session of any kind on the calendar, cached for an hour
 func nextHandler(w http.ResponseWriter, _ *http.Request) {
 	v, err := store.get("next", func() (any, time.Duration, error) {
 		var s []NextRace
 		now := time.Now().UTC().Format("2006-01-02T15:04:05")
-		if err := get("sessions?session_name=Race&date_start>="+now, &s); err != nil {
+		if err := get("sessions?date_start>="+now, &s); err != nil {
 			return nil, 0, err
 		}
 		if len(s) == 0 {

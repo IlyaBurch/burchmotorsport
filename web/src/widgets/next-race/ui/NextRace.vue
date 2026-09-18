@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
+import { sessionLabel } from '@/shared/api/live'
 
 interface Next {
   session_key: number
-  location: string
+  session_name: string
+  country_name: string
   date_start: string
 }
 
@@ -34,35 +36,37 @@ const startMsk = computed(() =>
 
 const left = computed(() => {
   const ms = startMs.value - now.value
-  if (ms <= 0) return 'сейчас'
+  if (ms <= 0) return 'Сейчас'
   const h = Math.floor(ms / 3_600_000)
   const d = Math.floor(h / 24)
   const m = Math.floor((ms % 3_600_000) / 60_000)
-  return d > 0 ? `${d}д ${h % 24}ч` : h > 0 ? `${h}ч ${m}м` : `${m}м`
+  return d > 0 ? `${d} дн ${h % 24}ч ${m}м` : `${h}ч ${m}м`
 })
 </script>
 
 <template>
-  <RouterLink v-if="next" class="next" :to="{ path: '/live', query: { session: String(next.session_key) } }" :title="startMsk">
-    <span class="display-sm next__label">Гонка</span>
-    <span class="body-strong next__where">{{ next.location }}</span>
-    <span class="timing next__left">{{ left }}</span>
-    <span class="body-sm next__when">{{ startMsk }}</span>
+  <RouterLink
+    v-if="next"
+    class="next"
+    :to="{ path: '/live', query: { session: String(next.session_key) } }"
+    :title="startMsk"
+  >
+    <span class="body-sm next__what">Далее: {{ next.country_name }} · {{ sessionLabel(next.session_name) }}</span>
+    <span class="display-sm next__left">{{ left }}</span>
   </RouterLink>
 </template>
 
 <style scoped>
 .next {
-  display: inline-grid;
-  grid-template-columns: auto auto;
-  column-gap: var(--space-2);
-  align-items: baseline;
+  display: grid;
+  justify-items: center;
   padding: var(--space-1) var(--space-3);
   border: var(--border-thin) solid var(--border);
   background: var(--surface-raised);
   color: var(--text);
   text-decoration: none;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .next:hover {
@@ -70,23 +74,13 @@ const left = computed(() => {
   color: var(--text);
 }
 
-.next__label {
-  color: var(--accent);
+.next__what {
+  color: var(--text-muted);
 }
 
-.next__where,
-.next__when {
-  display: none;
-}
-
-@media (min-width: 640px) {
-  .next__where { display: inline; }
-}
-
-@media (min-width: 1024px) {
-  .next {
-    grid-template-columns: auto auto auto auto;
+@media (max-width: 639px) {
+  .next__what {
+    display: none;
   }
-  .next__when { display: inline; }
 }
 </style>
