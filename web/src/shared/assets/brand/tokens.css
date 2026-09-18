@@ -143,13 +143,13 @@ html[data-theme="dark"] {
    Accent text lands around 3:1 on the blue: it is an easter egg, the crimson
    is the point, and every accent-coloured label is short display type. */
 html[data-theme="night-lords"] {
-  --surface:        #041a3a;
-  --surface-raised: #012b5d; /* Night Lords Blue */
-  --surface-sunken: #020f24;
+  --surface:        #0b1728;
+  --surface-raised: #162947; /* the emblem's own background, so the png sits flush on cards */
+  --surface-sunken: #070f1d;
   --text:           #ece7d9;
   --text-muted:     #9aa3c4;
   --border:         var(--ink);
-  --accent:         #a5122a; /* wings */
+  --accent:         #880015; /* the wings */
   --on-accent:      #ece7d9;
   --font-display:   'Ruslan Display', 'Exo 2', system-ui, sans-serif; /* high gothic */
 }
