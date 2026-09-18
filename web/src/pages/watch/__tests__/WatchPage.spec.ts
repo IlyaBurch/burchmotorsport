@@ -74,6 +74,7 @@ describe('WatchPage', () => {
     const { w } = await mountAt('/watch')
     await w.find('input').setValue('https://vk.com/video')
     await w.find('form').trigger('submit')
+    expect(w.text()).toContain('Иди нахуй')
     expect(w.text()).toContain('смертный')
     useTheme().set('dark')
   })

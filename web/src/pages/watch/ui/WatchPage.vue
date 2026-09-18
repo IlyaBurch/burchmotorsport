@@ -116,6 +116,7 @@ function ack() {
       <div class="bm-card__eyebrow">Трансляция</div>
       <h1 class="display-md">Смотри гонку с телеметрией</h1>
       <p class="body">Вставь ссылку на трансляцию или запись с RuTube. Ссылка останется в адресной строке, ей можно делиться.</p>
+      <p v-if="linkError && theme === 'night-lords'" class="display-xl watch__curse" role="alert">Иди нахуй</p>
       <form class="watch__form" @submit.prevent="open">
         <BmInput v-model="link" placeholder="https://rutube.ru/video/…" :error="linkError" />
         <BmButton variant="primary" type="submit">Открыть</BmButton>
@@ -182,6 +183,11 @@ function ack() {
 .watch {
   display: grid;
   gap: var(--space-4);
+}
+
+.watch__curse {
+  margin: var(--space-6) 0 0;
+  color: var(--accent);
 }
 
 .watch__form {
