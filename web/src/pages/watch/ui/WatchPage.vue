@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useLocalStorage } from '@vueuse/core'
+import { useLocalStorage, useMediaQuery } from '@vueuse/core'
 import { Columns2, Layers, Maximize, Minimize, PanelRightClose, PanelRightOpen, Volume2 } from 'lucide-vue-next'
 import { BmButton, BmCard, BmChip, BmInput, BmModal, BmTabs } from '@/shared/ui'
 import { parseRutubeId } from '@/shared/lib/rutube'
@@ -13,6 +13,10 @@ import { LivePanel } from '@/widgets/live-panel'
 
 const route = useRoute()
 const router = useRouter()
+
+// ponytail: phones get a notice, not the player. iOS takes the video fullscreen
+// natively and hides everything we draw; a custom mobile player comes later.
+const phone = useMediaQuery('(max-width: 767px)')
 
 // --- video from the url ------------------------------------------------------
 const videoId = computed(() => parseRutubeId(String(route.query.v ?? '')))
@@ -83,7 +87,16 @@ function ack() {
 
 <template>
   <section class="watch">
-    <BmCard v-if="!videoId" class="watch__intro">
+    <BmCard v-if="phone" class="watch__intro">
+      <div class="bm-card__eyebrow">Трансляция</div>
+      <h1 class="display-md">Пока только на компьютере</h1>
+      <p class="body">Видео с телеметрией на телефоне ещё не работает: мобильный плеер перекрывает данные. Делаем свой плеер, а пока телеметрия доступна отдельно.</p>
+      <RouterLink class="bm-btn bm-btn--primary" style="margin-top: var(--space-4)" :to="{ path: '/live', query: route.query.session ? { session: route.query.session } : {} }">
+        Телеметрия
+      </RouterLink>
+    </BmCard>
+
+    <BmCard v-else-if="!videoId" class="watch__intro">
       <div class="bm-card__eyebrow">Трансляция</div>
       <h1 class="display-md">Смотри гонку с телеметрией</h1>
       <p class="body">Вставь ссылку на трансляцию или запись с RuTube. Ссылка останется в адресной строке, ей можно делиться.</p>
