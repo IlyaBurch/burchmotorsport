@@ -27,6 +27,8 @@ export interface LiveDriver {
   compound: string
   tyreAge: number
   pits: number
+  champPos: number
+  champPoints: number
   x: number
   y: number
 }
@@ -109,6 +111,39 @@ export const inkOn = (hex: string) => {
   const lum = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255
   return lum > 0.55 ? 'var(--ink)' : 'var(--paper)'
 }
+
+const RACE_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+const SPRINT_POINTS = [8, 7, 6, 5, 4, 3, 2, 1]
+
+/** points a driver takes home if the session ends right now */
+export const pointsFor = (sessionName: string, position: number) => {
+  const table = sessionName === 'Race' ? RACE_POINTS : sessionName === 'Sprint' ? SPRINT_POINTS : []
+  return position > 0 ? (table[position - 1] ?? 0) : 0
+}
+
+export interface Projection {
+  number: number
+  gain: number
+  points: number
+  pos: number
+  delta: number // vs position before the session, + = climbed
+}
+
+/** projected standings if nothing changes */
+export function projectStandings(sessionName: string, drivers: LiveDriver[]): Map<number, Projection> {
+  const rows = drivers.map((d) => {
+    const gain = pointsFor(sessionName, d.position)
+    return { number: d.number, gain, points: d.champPoints + gain, pos: 0, delta: 0, before: d.champPos }
+  })
+  rows.sort((a, b) => b.points - a.points)
+  rows.forEach((r, i) => {
+    r.pos = i + 1
+    r.delta = r.before ? r.before - r.pos : 0
+  })
+  return new Map(rows.map((r) => [r.number, r]))
+}
+
+export const PENALTY_RE = /PENALTY|DELETED|TRACK LIMITS|INVESTIGATION|WARNING|REPRIMAND/
 
 /** SOFT → "S" */
 export const compoundLetter = (c: string) => (c === 'INTERMEDIATE' ? 'I' : c.charAt(0))

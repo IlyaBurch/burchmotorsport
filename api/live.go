@@ -37,7 +37,9 @@ type Driver struct {
 	Compound string      `json:"compound"`    // SOFT/MEDIUM/HARD/INTERMEDIATE/WET
 	TyreAge  int         `json:"tyreAge"`     // laps on current set
 	Pits     int         `json:"pits"`
-	X        int         `json:"x"` // track coords, 0,0 if unknown
+	ChampPos int         `json:"champPos"`    // standings before this session, 0 if unknown
+	ChampPts float64     `json:"champPoints"` // points before this session
+	X        int         `json:"x"`           // track coords, 0,0 if unknown
 	Y        int         `json:"y"`
 }
 
@@ -61,7 +63,7 @@ type Live struct {
 	Session     Session       `json:"session"`
 	Drivers     []Driver      `json:"drivers"`
 	Weather     *Weather      `json:"weather"`
-	RaceControl []RaceControl `json:"raceControl"` // newest first, last 20
+	RaceControl []RaceControl `json:"raceControl"` // newest first
 	UpdatedAt   string        `json:"updatedAt"`
 }
 
@@ -225,6 +227,11 @@ func fetchLive(sessionKey string) (Live, error) {
 	}
 	var weather []Weather
 	var rc []RaceControl
+	var champ []struct {
+		Number int     `json:"driver_number"`
+		Pos    *int    `json:"position_start"`
+		Pts    float64 `json:"points_start"`
+	}
 
 	// ponytail: sequential with a pause on purpose, openf1 allows 3 req/s.
 	// ~3s per refresh; parallel batches if it ever matters.
@@ -239,6 +246,7 @@ func fetchLive(sessionKey string) (Live, error) {
 		{"stints?session_key=" + key, &stints},
 		{"weather?session_key=" + key, &weather},
 		{"race_control?session_key=" + key, &rc},
+		{"championship_drivers?session_key=" + key, &champ},
 	} {
 		time.Sleep(400 * time.Millisecond)
 		if err := get(q.path, q.into); err != nil {
@@ -322,6 +330,14 @@ func fetchLive(sessionKey string) (Live, error) {
 			out[i].Pits--
 		}
 	}
+	for _, c := range champ {
+		if d := byNum[c.Number]; d != nil {
+			d.ChampPts = c.Pts
+			if c.Pos != nil {
+				d.ChampPos = *c.Pos
+			}
+		}
+	}
 	for _, p := range loc {
 		if d := byNum[p.Number]; d != nil && (p.X != 0 || p.Y != 0) {
 			d.X, d.Y = p.X, p.Y
@@ -342,7 +358,7 @@ func fetchLive(sessionKey string) (Live, error) {
 	if len(weather) > 0 {
 		live.Weather = &weather[len(weather)-1]
 	}
-	for i := len(rc) - 1; i >= 0 && len(live.RaceControl) < 20; i-- {
+	for i := len(rc) - 1; i >= 0; i-- {
 		live.RaceControl = append(live.RaceControl, rc[i])
 	}
 	return live, nil

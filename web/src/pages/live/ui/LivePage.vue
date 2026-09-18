@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useIntervalFn } from '@vueuse/core'
 import { BmCard, BmChip } from '@/shared/ui'
 import {
   FIRST_SEASON,
+  PENALTY_RE,
   compoundLetter,
   fetchLive,
   fetchMeetings,
@@ -16,6 +17,7 @@ import {
   hasStarted,
   inkOn,
   isFinished,
+  projectStandings,
   sessionLabel,
   type Live,
   type Meeting,
@@ -127,6 +129,27 @@ const sectorTone = (d: Live['drivers'][number], i: number): Tone => {
   return 'default'
 }
 
+const standings = computed(() =>
+  live.value ? projectStandings(live.value.session.session_name, live.value.drivers) : new Map(),
+)
+const scoring = computed(() => ['Race', 'Sprint'].includes(live.value?.session.session_name ?? ''))
+const fmtDelta = (n: number) => (n > 0 ? `▲${n}` : n < 0 ? `▼${-n}` : '')
+
+const penalties = computed(() => live.value?.raceControl.filter((m) => PENALTY_RE.test(m.message)) ?? [])
+
+// flag banner under the header: shows on change, green/clear hides itself after 5s
+const banner = ref<string | null>(null)
+let bannerTimer: ReturnType<typeof setTimeout> | undefined
+watch(
+  () => trackFlag.value,
+  (flag) => {
+    clearTimeout(bannerTimer)
+    banner.value = flag
+    if (flag === 'GREEN' || flag === 'CLEAR') bannerTimer = setTimeout(() => (banner.value = null), 5000)
+  },
+)
+onScopeDispose(() => clearTimeout(bannerTimer))
+
 const trackFlag = computed(() => {
   const f = live.value?.raceControl.find((m) => m.category === 'Flag' || m.category === 'SafetyCar')
   return f?.flag ?? null
@@ -137,6 +160,10 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 
 <template>
   <section class="live">
+    <div v-if="banner" class="live__flag display-md" :class="`live__flag--${flagTone(banner)}`" role="status">
+      {{ banner }}
+    </div>
+
     <BmCard class="live__head">
       <div class="live__title-row">
         <div>
@@ -203,6 +230,16 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
         <div><dt class="display-sm">Дождь</dt><dd class="timing">{{ live.weather.rainfall ? 'Да' : 'Нет' }}</dd></div>
       </dl>
 
+      <BmCard v-if="penalties.length">
+        <div class="bm-card__eyebrow">Лимиты трассы и штрафы</div>
+        <ol class="live__rc">
+          <li v-for="m in penalties" :key="m.date + m.message">
+            <span class="timing-sm">L{{ m.lap_number || '—' }}</span>
+            <span class="body-sm">{{ m.message }}</span>
+          </li>
+        </ol>
+      </BmCard>
+
       <BmCard v-if="live?.raceControl.length" class="live__rc-card">
         <div class="bm-card__eyebrow">Race control</div>
         <ol class="live__rc">
@@ -230,6 +267,8 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
             <th class="live__num">S3</th>
             <th class="live__num">Лучший</th>
             <th class="live__num">Трап</th>
+            <th v-if="scoring" class="live__num">+Очки</th>
+            <th class="live__num">Чемп.</th>
           </tr>
         </thead>
         <tbody v-if="live">
@@ -263,11 +302,20 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
               <template v-else>{{ formatLap(d.bestLap) }}</template>
             </td>
             <td class="timing live__num">{{ d.speedTrap || '—' }}</td>
+            <td v-if="scoring" class="timing live__num">{{ standings.get(d.number)?.gain || '—' }}</td>
+            <td class="timing live__num">
+              {{ standings.get(d.number)?.pos }}
+              <span class="timing-sm">{{ standings.get(d.number)?.points }}</span>
+              <BmChip
+                v-if="standings.get(d.number)?.delta"
+                :variant="standings.get(d.number)!.delta > 0 ? 'green' : 'yellow'"
+              >{{ fmtDelta(standings.get(d.number)!.delta) }}</BmChip>
+            </td>
           </tr>
         </tbody>
         <tbody v-else aria-busy="true" aria-label="Загрузка">
           <tr v-for="i in 20" :key="i">
-            <td colspan="12"><div class="live__skeleton" /></td>
+            <td colspan="14"><div class="live__skeleton" /></td>
           </tr>
         </tbody>
       </table>
@@ -280,8 +328,23 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 .live {
   display: grid;
   gap: var(--space-4);
-  grid-template-areas: 'head' 'table' 'side';
+  grid-template-areas: 'flag' 'head' 'table' 'side';
 }
+
+.live__flag {
+  grid-area: flag;
+  padding: var(--space-3) var(--space-4);
+  text-align: center;
+  color: var(--ink);
+  border: var(--border-thick) solid var(--border);
+  box-shadow: var(--shadow-hard);
+}
+
+.live__flag--green { background: var(--timing-green); }
+.live__flag--yellow { background: var(--timing-yellow); }
+.live__flag--red { background: var(--flag-red); }
+.live__flag--purple { background: var(--timing-purple); }
+.live__flag--default { background: var(--surface-raised); color: var(--text); }
 
 .live__head { grid-area: head; }
 .live__side { grid-area: side; display: grid; gap: var(--space-4); align-content: start; }
@@ -290,7 +353,7 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
 @media (min-width: 1024px) {
   .live {
     grid-template-columns: minmax(0, 1fr) 360px;
-    grid-template-areas: 'head head' 'table side';
+    grid-template-areas: 'flag flag' 'head head' 'table side';
     gap: var(--space-6);
   }
 }
@@ -460,6 +523,8 @@ const flagTone = (flag: string | null): Tone | 'yellow' | 'red' =>
   padding: 0;
   display: grid;
   gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .live__rc li {
