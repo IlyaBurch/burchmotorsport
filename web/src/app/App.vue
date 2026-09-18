@@ -15,10 +15,10 @@ const egg = useNightLords()
 <template>
   <BmHeader @logo="egg.tap()">
     <NextRace />
-    <RouterLink class="bm-btn bm-btn--ghost" to="/watch">
+    <RouterLink class="bm-btn bm-btn--ghost bm-nav-link" to="/watch">
       Трансляция
     </RouterLink>
-    <RouterLink class="bm-btn bm-btn--ghost" to="/live">
+    <RouterLink class="bm-btn bm-btn--ghost bm-nav-link" to="/live">
       Телеметрия
     </RouterLink>
     <BmButton :aria-label="theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'" @click="toggle">
@@ -39,5 +39,15 @@ const egg = useNightLords()
 <style scoped>
 .bm-full {
   padding-inline: var(--space-4);
+}
+
+.bm-nav-link {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .bm-nav-link {
+    display: flex;
+  }
 }
 </style>
