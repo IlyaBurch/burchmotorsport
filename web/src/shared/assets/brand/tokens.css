@@ -122,6 +122,19 @@ html[data-theme="dark"] {
   --on-accent:      var(--ink);
 }
 
+/* ── Semantic tokens: NIGHT LORDS (easter egg) ─────────
+   Midnight armour, bronze trim, bone-white text. Same contract as dark. */
+html[data-theme="night-lords"] {
+  --surface:        #06081a;
+  --surface-raised: #12173a;
+  --surface-sunken: #03040f;
+  --text:           #ece7d9;
+  --text-muted:     #9a95b3;
+  --border:         var(--ink);
+  --accent:         #c9a24a;
+  --on-accent:      var(--ink);
+}
+
 /* ── Semantic tokens: LIGHT ───────────────────────────── */
 html[data-theme="light"] {
   --surface:        var(--paper);

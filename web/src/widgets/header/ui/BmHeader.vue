@@ -2,14 +2,15 @@
 import { useTheme } from '@/features/theme-toggle'
 
 const { theme } = useTheme()
+defineEmits<{ logo: [] }>()
 </script>
 
 <template>
   <header class="bm-header">
-    <RouterLink to="/">
+    <RouterLink to="/" @click="$emit('logo')">
       <!-- Full lockup on desktop, simple mark on mobile -->
       <img
-        v-if="theme === 'dark'"
+        v-if="theme !== 'light'"
         src="/brand/lockup-on-dark.svg"
         alt="Burch Motorsport"
         class="bm-header__logo bm-header__logo--full"

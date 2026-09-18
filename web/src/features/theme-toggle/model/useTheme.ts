@@ -1,7 +1,7 @@
 import { computed, watchEffect } from 'vue'
 import { useStorage, usePreferredDark } from '@vueuse/core'
 
-type Theme = 'dark' | 'light'
+export type Theme = 'dark' | 'light' | 'night-lords' // night-lords: easter egg, see features/night-lords
 
 const prefersDark = usePreferredDark()
 const stored = useStorage<Theme | null>('bm-theme', null)
@@ -17,7 +17,7 @@ watchEffect(() => {
 
 export function useTheme() {
   function toggle() {
-    theme.value = theme.value === 'dark' ? 'light' : 'dark'
+    theme.value = theme.value === 'light' ? 'dark' : 'light'
   }
 
   function set(t: Theme) {
