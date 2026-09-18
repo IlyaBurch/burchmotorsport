@@ -404,17 +404,21 @@ onScopeDispose(() => clearTimeout(bannerTimer))
         </div>
       </BmCard>
 
+    </div>
+
     <BmCard v-if="live?.raceControl.length" class="live__rc">
       <div class="bm-card__eyebrow">Race control</div>
-      <ol class="live__list live__feed">
+      <ol class="live__ticker">
         <li v-for="m in live.raceControl" :key="m.date + m.message" class="live__msg">
-          <span class="timing-sm">L{{ m.lap_number || '—' }}</span>
-          <i v-if="flagClass(m.flag)" class="live__sq" :class="`live__sq--${flagClass(m.flag)}`" aria-hidden="true" />
+          <span class="live__msg-head">
+            <span class="timing-sm">L{{ m.lap_number || '—' }}</span>
+            <i v-if="flagClass(m.flag)" class="live__sq" :class="`live__sq--${flagClass(m.flag)}`" aria-hidden="true" />
+            <span class="timing-sm">{{ formatTime(m.date) }}</span>
+          </span>
           <span class="body-sm">{{ m.message }}</span>
         </li>
       </ol>
     </BmCard>
-    </div>
 
     <BmCard v-if="live?.radio.length" class="live__radio">
       <div class="bm-card__eyebrow">Радио</div>
@@ -435,7 +439,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live {
   display: grid;
   gap: var(--space-4);
-  grid-template-areas: 'flag' 'head' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'radio';
+  grid-template-areas: 'flag' 'head' 'table' 'side' 'chart' 'tyres' 'drivers' 'teams' 'pen' 'rc' 'radio';
 }
 
 .live__head { grid-area: head; }
@@ -445,27 +449,10 @@ onScopeDispose(() => clearTimeout(bannerTimer))
 .live__tyres { grid-area: tyres; }
 .live__drivers { grid-area: drivers; }
 .live__teams { grid-area: teams; }
-.live__pen { grid-area: pen; display: flex; flex-direction: column; gap: var(--space-4); }
+.live__pen { grid-area: pen; display: grid; gap: var(--space-4); align-content: start; }
 
-/* race control takes whatever height the standings row leaves */
-.live__rc {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
+.live__rc { grid-area: rc; }
 
-.live__rc .live__feed {
-  flex: 1;
-  min-height: 200px;
-  max-height: 480px;
-}
-
-@media (min-width: 1024px) {
-  .live__rc .live__feed {
-    max-height: none;
-  }
-}
 .live__radio { grid-area: radio; }
 
 @media (min-width: 1024px) {
@@ -478,6 +465,7 @@ onScopeDispose(() => clearTimeout(bannerTimer))
       'chart chart chart'
       'tyres tyres tyres'
       'drivers teams pen'
+      'rc rc rc'
       'radio radio radio';
     gap: var(--space-6);
   }
@@ -715,12 +703,32 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   border: var(--border-thin) solid var(--border);
 }
 
+/* horizontal ticker, newest on the left */
+.live__ticker {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0 0 var(--space-2);
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+}
+
 .live__msg {
   max-width: none;
+  flex: 0 0 260px;
   display: grid;
-  grid-template-columns: 44px auto 1fr;
   gap: var(--space-2);
-  align-items: baseline;
+  align-content: start;
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border: var(--border-thin) solid var(--border);
+}
+
+.live__msg-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
 }
 
 .live__sq {
