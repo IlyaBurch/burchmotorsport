@@ -17,6 +17,8 @@ services:
     restart: unless-stopped
     environment:
       RADIO_RELAY: ${RADIO_RELAY:-} # see api/radio.go
+      OPENF1_USERNAME: ${OPENF1_USERNAME:-} # sponsor tier, see api/auth.go
+      OPENF1_PASSWORD: ${OPENF1_PASSWORD:-}
     ports:
       - "127.0.0.1:8090:8080" # local dev: vite proxies /api here
 

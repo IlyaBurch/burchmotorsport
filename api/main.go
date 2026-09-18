@@ -27,6 +27,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	log.Println("api listening on :" + port)
+	log.Printf("api listening on :%s, openf1 sponsored=%v", port, sponsored())
 	log.Fatal(http.ListenAndServe(":"+port, handler()))
 }

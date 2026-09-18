@@ -131,7 +131,7 @@ func liveHandler(w http.ResponseWriter, r *http.Request) {
 		if end, e := time.Parse(time.RFC3339, l.Session.End); e == nil && end.Add(time.Hour).Before(time.Now()) {
 			return l, forever, nil
 		}
-		return l, 10 * time.Second, nil // underlying endpoints have their own ttls
+		return l, 5 * time.Second, nil // underlying endpoints have their own ttls
 	})
 	if errors.Is(err, errNoData) {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -222,12 +222,18 @@ var (
 	limLast time.Time
 )
 
-const limInterval = 400 * time.Millisecond
+// free: 3 req/s, 30/min. sponsor: 6 req/s, 60/min.
+func limInterval() time.Duration {
+	if sponsored() {
+		return 200 * time.Millisecond
+	}
+	return 400 * time.Millisecond
+}
 
 func throttle() {
 	limMu.Lock()
 	defer limMu.Unlock()
-	if d := time.Until(limLast.Add(limInterval)); d > 0 {
+	if d := time.Until(limLast.Add(limInterval())); d > 0 {
 		time.Sleep(d)
 	}
 	limLast = time.Now()
@@ -259,9 +265,13 @@ func get(path string, v any) error {
 			log.Printf("openf1 retry %s: %v", path, err)
 			time.Sleep(2 * time.Second)
 		}
+		req, _ := http.NewRequest("GET", openf1+path, nil)
+		if err = authorize(req); err != nil {
+			return err
+		}
 		throttle()
 		var resp *http.Response
-		resp, err = client.Get(openf1 + path)
+		resp, err = client.Do(req)
 		if err != nil {
 			continue
 		}
@@ -324,9 +334,12 @@ func fetchLive(sessionKey string) (Live, error) {
 		return upcomingLive(sessions[0]), nil
 	}
 
-	// free openf1 tier: 30 req/min. Budget per live session: hot 4×6/min,
-	// warm 4×1/min, cold ~0 → ~28/min. Finished sessions never change.
+	// budget per live session: free 30/min → hot 4×6 + warm 4 ≈ 28;
+	// sponsor 60/min → hot 4×12 + warm 4 ≈ 52. Finished sessions never change.
 	hot, warm, cold := 10*time.Second, time.Minute, 10*time.Minute
+	if sponsored() {
+		hot = 5 * time.Second
+	}
 	if end, e := time.Parse(time.RFC3339, sessions[0].End); e == nil && end.Add(time.Hour).Before(time.Now()) {
 		hot, warm, cold = forever, forever, forever
 	}
