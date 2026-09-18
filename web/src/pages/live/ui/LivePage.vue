@@ -688,11 +688,6 @@ onScopeDispose(() => clearTimeout(bannerTimer))
   align-items: center;
 }
 
-.live__row--3 {
-  grid-template-columns: 52px auto 1fr;
-  justify-items: start;
-}
-
 .live__gain {
   color: var(--text-muted);
 }

@@ -86,7 +86,6 @@ type Live struct {
 	Session     Session       `json:"session"`
 	Drivers     []Driver      `json:"drivers"`
 	Teams       []Team        `json:"teams"`
-	Pits        []Pit         `json:"pits"`  // chronological
 	Radio       []Radio       `json:"radio"` // newest first
 	Weather     *Weather      `json:"weather"`
 	RaceControl []RaceControl `json:"raceControl"` // newest first
