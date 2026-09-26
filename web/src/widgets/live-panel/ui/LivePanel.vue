@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { BmChip, BmTabs } from '@/shared/ui'
-import { TrackMap, DriverPlate } from '@/entities/session'
+import { TrackMap, DriverPlate, DriverCards } from '@/entities/session'
 import { compoundLetter, flagClass, formatGap, projectStandings, type Live } from '@/shared/api/live'
 
 const props = defineProps<{
@@ -13,6 +13,7 @@ const props = defineProps<{
 
 const tabs = [
   { key: 'track', label: 'Трасса' },
+  { key: 'timing', label: 'Тайминг' },
   { key: 'tyres', label: 'Шины' },
   { key: 'standings', label: 'Зачёт' },
 ]
@@ -44,6 +45,8 @@ const raceControl = computed(() => props.live?.raceControl.slice(0, props.compac
       </ol>
       <p v-else-if="live" class="body-sm">Race control молчит</p>
     </div>
+
+    <DriverCards v-else-if="tab === 'timing'" :drivers="live?.drivers ?? []" class="panel__body" />
 
     <ol v-else-if="tab === 'tyres'" class="panel__body panel__rows">
       <li v-for="d in live?.drivers ?? []" :key="d.number" class="panel__row">
